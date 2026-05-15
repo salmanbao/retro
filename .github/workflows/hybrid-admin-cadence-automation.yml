@@ -1,0 +1,157 @@
+name: Hybrid Admin Cadence Automation
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+    - cron: '0 4 1 * *'
+    - cron: '0 5 1 1,4,7,10 *'
+  workflow_dispatch:
+    inputs:
+      cadence:
+        description: Cadence mode override for manual runs
+        required: true
+        type: choice
+        default: weekly-lightweight
+        options:
+          - weekly-lightweight
+          - monthly-full-strict
+          - quarterly-governance-recertification
+
+permissions:
+  contents: read
+
+jobs:
+  hybrid-admin-cadence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          version: 1.44.0
+      - name: Install protoc plugins
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Resolve cadence mode
+        id: cadence
+        shell: bash
+        run: |
+          set -euo pipefail
+          cadence_mode=""
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            cadence_mode="${{ inputs.cadence }}"
+          else
+            case "${{ github.event.schedule }}" in
+              "0 3 * * 1")
+                cadence_mode="weekly-lightweight"
+                ;;
+              "0 4 1 * *")
+                cadence_mode="monthly-full-strict"
+                ;;
+              "0 5 1 1,4,7,10 *")
+                cadence_mode="quarterly-governance-recertification"
+                ;;
+              *)
+                echo "Unsupported cadence schedule: ${{ github.event.schedule }}"
+                exit 1
+                ;;
+            esac
+          fi
+
+          enforce_drift="false"
+          retention_days="35"
+          if [[ "$cadence_mode" == "monthly-full-strict" ]]; then
+            enforce_drift="true"
+            retention_days="120"
+          elif [[ "$cadence_mode" == "quarterly-governance-recertification" ]]; then
+            enforce_drift="true"
+            retention_days="365"
+          fi
+
+          evidence_rel="viralForge/evidence/hybrid-admin-release/cadence/${cadence_mode}/latest"
+
+          echo "mode=$cadence_mode" >> "$GITHUB_OUTPUT"
+          echo "enforce_drift=$enforce_drift" >> "$GITHUB_OUTPUT"
+          echo "retention_days=$retention_days" >> "$GITHUB_OUTPUT"
+          echo "evidence_rel=$evidence_rel" >> "$GITHUB_OUTPUT"
+      - name: Run cadence validation
+        shell: pwsh
+        run: |
+          $repoRoot = "${{ github.workspace }}"
+          $outputDir = Join-Path $repoRoot "${{ steps.cadence.outputs.evidence_rel }}"
+          $baselineDir = Join-Path $repoRoot "viralForge/evidence/hybrid-admin-release/latest"
+          $validationMode = "${{ steps.cadence.outputs.mode }}"
+
+          if ("${{ steps.cadence.outputs.enforce_drift }}" -eq "true") {
+            ./scripts/run-hybrid-admin-validation.ps1 `
+              -RepoRoot $repoRoot `
+              -OutputDir $outputDir `
+              -ValidationMode $validationMode `
+              -DeterministicBaselineDir $baselineDir `
+              -EnforceNoDeterministicDrift
+          }
+          else {
+            ./scripts/run-hybrid-admin-validation.ps1 `
+              -RepoRoot $repoRoot `
+              -OutputDir $outputDir `
+              -ValidationMode $validationMode `
+              -DeterministicBaselineDir $baselineDir
+          }
+      - name: Assert cadence governance status
+        shell: bash
+        run: |
+          set -euo pipefail
+          status_file="${{ steps.cadence.outputs.evidence_rel }}/GOVERNANCE_STATUS.json"
+          test -f "$status_file"
+          final_status="$(python - <<'PY'
+          import json
+          with open("${{ steps.cadence.outputs.evidence_rel }}/GOVERNANCE_STATUS.json", encoding="utf-8") as f:
+              print(json.load(f).get("final_status", ""))
+          PY
+          )"
+          if [[ "$final_status" != "HYBRID_ADMIN_OPERATIONS_READY" ]]; then
+            echo "Unexpected governance final_status=$final_status"
+            exit 1
+          fi
+          mode_recorded="$(python - <<'PY'
+          import json
+          with open("${{ steps.cadence.outputs.evidence_rel }}/GOVERNANCE_STATUS.json", encoding="utf-8") as f:
+              print(json.load(f).get("validation_mode", ""))
+          PY
+          )"
+          if [[ "$mode_recorded" != "${{ steps.cadence.outputs.mode }}" ]]; then
+            echo "Validation mode mismatch: expected=${{ steps.cadence.outputs.mode }} actual=$mode_recorded"
+            exit 1
+          fi
+          if [[ "${{ steps.cadence.outputs.mode }}" == "quarterly-governance-recertification" ]]; then
+            quarterly_status="$(python - <<'PY'
+            import json
+            with open("${{ steps.cadence.outputs.evidence_rel }}/GOVERNANCE_STATUS.json", encoding="utf-8") as f:
+                payload = json.load(f)
+            print(payload.get("key_steps", {}).get("quarterly_governance_recertification", ""))
+            PY
+            )"
+            if [[ "$quarterly_status" != "PASS" ]]; then
+              echo "Quarterly recertification step failed: $quarterly_status"
+              exit 1
+            fi
+          fi
+      - name: Upload cadence governance package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-admin-cadence-${{ steps.cadence.outputs.mode }}
+          path: ${{ steps.cadence.outputs.evidence_rel }}
+          retention-days: ${{ steps.cadence.outputs.retention_days }}

@@ -1,0 +1,13 @@
+# Node
+node_modules/
+viralForge/
+# Go
+*.exe
+*.test
+*.out
+vendor/
+*.DS_Store
+**/*.DS_Store
+# Contracts build artifacts
+/contracts/**/dist
+/contracts/**/generated

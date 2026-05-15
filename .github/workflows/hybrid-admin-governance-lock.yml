@@ -1,0 +1,119 @@
+name: Hybrid Admin Governance Lock
+
+on:
+  pull_request:
+    paths:
+      - 'solomon/internal/platform/httpserver/**'
+      - 'solomon/contexts/internal-ops/admin-dashboard-service/**'
+      - 'mesh/services/financial-rails/M05-billing-service/**'
+      - 'mesh/services/financial-rails/M14-payout-settlement-service/**'
+      - 'mesh/services/data-ai/M25-auto-clipping-ai/**'
+      - 'mesh/services/financial-rails/M39-finance-service/**'
+      - 'mesh/services/financial-rails/M41-reward-engine/**'
+      - 'mesh/services/financial-rails/M44-resolution-center/**'
+      - 'mesh/services/trust-compliance/M50-consent-service/**'
+      - 'mesh/services/trust-compliance/M51-data-portability-service/**'
+      - 'mesh/services/trust-compliance/M68-retention-service/**'
+      - 'mesh/services/trust-compliance/M69-legal-service/**'
+      - 'mesh/services/integrations/M70-developer-portal/**'
+      - 'mesh/services/integrations/M71-integration-hub/**'
+      - 'mesh/services/integrations/M72-webhook-manager/**'
+      - 'mesh/services/integrations/M73-support-service/**'
+      - 'mesh/services/platform-ops/M84-data-migration-service/**'
+      - 'mesh/services/integrations/M89-affiliate-service/**'
+      - 'mesh/services/trust-compliance/M96-referral-fraud-detection-service/**'
+      - 'admin-spec/**'
+      - 'scripts/run-hybrid-admin-validation.ps1'
+      - 'mesh/scripts/contracts-buf-*.sh'
+      - 'mesh/.github/workflows/contracts.yml'
+      - 'mesh/.github/workflows/mesh-gates.yml'
+      - 'mesh/.github/workflows/module-ci.yml'
+      - 'viralForge/evidence/hybrid-admin-release/**'
+      - '.github/workflows/hybrid-admin-governance-lock.yml'
+      - '.github/workflows/hybrid-admin-cadence-automation.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'solomon/internal/platform/httpserver/**'
+      - 'solomon/contexts/internal-ops/admin-dashboard-service/**'
+      - 'mesh/services/financial-rails/M05-billing-service/**'
+      - 'mesh/services/financial-rails/M14-payout-settlement-service/**'
+      - 'mesh/services/data-ai/M25-auto-clipping-ai/**'
+      - 'mesh/services/financial-rails/M39-finance-service/**'
+      - 'mesh/services/financial-rails/M41-reward-engine/**'
+      - 'mesh/services/financial-rails/M44-resolution-center/**'
+      - 'mesh/services/trust-compliance/M50-consent-service/**'
+      - 'mesh/services/trust-compliance/M51-data-portability-service/**'
+      - 'mesh/services/trust-compliance/M68-retention-service/**'
+      - 'mesh/services/trust-compliance/M69-legal-service/**'
+      - 'mesh/services/integrations/M70-developer-portal/**'
+      - 'mesh/services/integrations/M71-integration-hub/**'
+      - 'mesh/services/integrations/M72-webhook-manager/**'
+      - 'mesh/services/integrations/M73-support-service/**'
+      - 'mesh/services/platform-ops/M84-data-migration-service/**'
+      - 'mesh/services/integrations/M89-affiliate-service/**'
+      - 'mesh/services/trust-compliance/M96-referral-fraud-detection-service/**'
+      - 'admin-spec/**'
+      - 'scripts/run-hybrid-admin-validation.ps1'
+      - 'mesh/scripts/contracts-buf-*.sh'
+      - 'mesh/.github/workflows/contracts.yml'
+      - 'mesh/.github/workflows/mesh-gates.yml'
+      - 'mesh/.github/workflows/module-ci.yml'
+      - 'viralForge/evidence/hybrid-admin-release/**'
+      - '.github/workflows/hybrid-admin-governance-lock.yml'
+      - '.github/workflows/hybrid-admin-cadence-automation.yml'
+
+jobs:
+  hybrid-admin-governance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          version: 1.44.0
+      - name: Install protoc plugins
+        shell: bash
+        run: |
+          set -euo pipefail
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Run hybrid admin governance lock
+        shell: pwsh
+        run: >
+          ./scripts/run-hybrid-admin-validation.ps1
+          -RepoRoot "${{ github.workspace }}"
+          -OutputDir "${{ github.workspace }}/viralForge/evidence/hybrid-admin-release/latest"
+          -EnforceNoDeterministicDrift
+      - name: Assert governance status
+        shell: bash
+        run: |
+          set -euo pipefail
+          status_file="viralForge/evidence/hybrid-admin-release/latest/GOVERNANCE_STATUS.json"
+          test -f "$status_file"
+          final_status="$(python - <<'PY'
+          import json
+          with open("viralForge/evidence/hybrid-admin-release/latest/GOVERNANCE_STATUS.json", encoding="utf-8") as f:
+              print(json.load(f).get("final_status", ""))
+          PY
+          )"
+          if [[ "$final_status" != "HYBRID_ADMIN_OPERATIONS_READY" ]]; then
+            echo "Unexpected governance final_status=$final_status"
+            exit 1
+          fi
+      - name: Upload governance package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hybrid-admin-governance-package
+          path: viralForge/evidence/hybrid-admin-release/latest

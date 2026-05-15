@@ -1,0 +1,225 @@
+openapi: 3.0.3
+info:
+  title: ViralForge Auth API
+  version: 1.0.0
+paths:
+  /auth/register:
+    post:
+      summary: Register new account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        201:
+          description: Account created, verification email sent
+        400:
+          description: Validation error
+        409:
+          description: Email already registered
+  /auth/verify-email:
+    post:
+      summary: Verify email address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        200:
+          description: Email verified
+        400:
+          description: Invalid or expired token
+  /auth/login:
+    post:
+      summary: Log in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        200:
+          description: Login successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        401:
+          description: Invalid credentials
+        403:
+          description: Email not verified
+  /auth/logout:
+    post:
+      summary: Log out current session
+      security:
+        - BearerAuth: []
+      responses:
+        204:
+          description: Logged out
+        401:
+          description: Not authenticated
+  /auth/password-reset-request:
+    post:
+      summary: Request password reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+      responses:
+        200:
+          description: Reset email sent if account exists
+  /auth/password-reset-confirm:
+    post:
+      summary: Confirm password reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, new_password]
+              properties:
+                token:
+                  type: string
+                new_password:
+                  type: string
+      responses:
+        200:
+          description: Password reset complete
+        400:
+          description: Invalid or expired token
+  /sessions:
+    get:
+      summary: List active sessions
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: List of sessions
+        401:
+          description: Not authenticated
+  /sessions/{session_id}:
+    delete:
+      summary: Revoke a session
+      security:
+        - BearerAuth: []
+      responses:
+        204:
+          description: Session revoked
+        401:
+          description: Not authenticated
+        404:
+          description: Session not found
+  /sessions/active:
+    patch:
+      summary: Switch active profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profile_id]
+              properties:
+                profile_id:
+                  type: string
+                  format: uuid
+      responses:
+        200:
+          description: Active profile switched
+        400:
+          description: Invalid profile_id
+        403:
+          description: Profile does not belong to user
+  /profiles:
+    get:
+      summary: List user's profiles
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: List of profiles
+    post:
+      summary: Create a new profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profile_type, name, details]
+              properties:
+                profile_type:
+                  type: string
+                  enum: [brand, editor, influencer]
+                name:
+                  type: string
+                details:
+                  type: object
+      responses:
+        201:
+          description: Profile created
+  /profiles/{profile_id}:
+    get:
+      summary: Get profile details
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: Profile details
+        403:
+          description: Profile does not belong to user
+        404:
+          description: Profile not found
+    patch:
+      summary: Update profile
+      security:
+        - BearerAuth: []
+      responses:
+        200:
+          description: Profile updated
+    delete:
+      summary: Delete profile
+      security:
+        - BearerAuth: []
+      responses:
+        204:
+          description: Profile deleted
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
