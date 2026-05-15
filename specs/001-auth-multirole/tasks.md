@@ -146,19 +146,19 @@
 
 ### Tests for User Story 4
 
-- [ ] T053 [P] [US4] Unit test for profile creation validation in `backend/tests/unit/profile_service_test.go`
-- [ ] T054 [P] [US4] Unit test for profile type-specific details validation in `backend/tests/unit/profile_service_test.go`
-- [ ] T055 [US4] Integration test for profile creation in `backend/tests/integration/profile_service_test.go`
-- [ ] T056 [US4] Contract test for GET /profiles, POST /profiles endpoints
+- [X] T053 [P] [US4] Unit test for profile creation validation in `backend/tests/unit/profile_service_test.go`
+- [X] T054 [P] [US4] Unit test for profile type-specific details validation in `backend/tests/unit/profile_service_test.go`
+- [X] T055 [US4] Integration test for profile creation in `backend/tests/integration/profile_service_test.go`
+- [X] T056 [US4] Contract test for GET /profiles, POST /profiles endpoints
 
 ### Implementation for User Story 4
 
-- [ ] T057 [P] [US4] Implement CreateProfile method in `backend/src/service/profile_service.go`
-- [ ] T058 [P] [US4] Implement ListProfiles method in `backend/src/service/profile_service.go`
-- [ ] T059 [US4] Create GET /profiles endpoint returning all profiles for authenticated user
-- [ ] T060 [US4] Create POST /profiles endpoint with profile type and details validation
-- [ ] T061 [US4] Add profile type-specific details validation (Brand: company_name, size, industry; Editor: specializations[], portfolio_url; Influencer: platforms[], follower_counts)
-- [ ] T062 [US4] Add created_at and updated_at timestamps on profile creation
+- [X] T057 [P] [US4] Implement CreateProfile method in `backend/src/service/profile_service.go`
+- [X] T058 [P] [US4] Implement ListProfiles method in `backend/src/service/profile_service.go`
+- [X] T059 [US4] Create GET /profiles endpoint returning all profiles for authenticated user
+- [X] T060 [US4] Create POST /profiles endpoint with profile type and details validation
+- [X] T061 [US4] Add profile type-specific details validation (Brand: company_name, size, industry; Editor: specializations[], portfolio_url; Influencer: platforms[], follower_counts)
+- [X] T062 [US4] Add created_at and updated_at timestamps on profile creation
 
 **Checkpoint**: User Story 4 fully functional and testable independently
 

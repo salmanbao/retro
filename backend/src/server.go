@@ -52,13 +52,25 @@ func (s *Server) Setup() {
 	)
 	authHandler := handler.NewAuthHandler(authSvc)
 	authMiddleware := authMiddleware.NewAuthMiddleware(s.store.SessionRepository(), s.store.UserRepository())
+
+	profileSvc := service.NewProfileService(
+		s.store.ProfileRepository(),
+		s.store.UserRepository(),
+	)
+	profileHandler := handler.NewProfileHandler(profileSvc)
+
 	s.router.Route("/api/v1/auth", func(r chi.Router) {
 		authHandler.RegisterRoutes(r)
 	})
-	// Protected routes with authentication middleware
+	// Protected auth routes
 	s.router.Route("/api/v1/auth/me", func(r chi.Router) {
 		r.Use(authMiddleware.Authenticate)
 		r.Get("/me", authHandler.Me)
+	})
+	// Protected profile routes
+	s.router.Route("/api/v1/profiles", func(r chi.Router) {
+		r.Use(authMiddleware.Authenticate)
+		profileHandler.RegisterRoutes(r)
 	})
 }
 
