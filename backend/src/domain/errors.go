@@ -45,4 +45,10 @@ var (
 
 	// ErrInvalidProfileType indicates an unknown profile type was provided.
 	ErrInvalidProfileType = errors.New("invalid profile type")
+
+	// ErrCampaignNotFound indicates no campaign matches the provided identifier.
+	ErrCampaignNotFound = errors.New("campaign not found")
+
+	// ErrUnauthorized indicates the user is not authorized for this action.
+	ErrUnauthorized = errors.New("unauthorized")
 )

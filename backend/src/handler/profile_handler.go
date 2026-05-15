@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"viralforge/backend/src/domain"
 	"viralforge/backend/src/middleware"
 	"viralforge/backend/src/service"
@@ -169,4 +170,144 @@ func (h *ProfileHandler) List(w http.ResponseWriter, r *http.Request) {
 func (h *ProfileHandler) RegisterRoutes(r chi.Router) {
 	r.Post("/", h.Create)
 	r.Get("/", h.List)
+	r.Get("/{id}", h.Get)
+	r.Patch("/{id}", h.Update)
+	r.Delete("/{id}", h.Delete)
+}
+
+// UpdateProfileRequest represents the profile update request body.
+type UpdateProfileRequest struct {
+	Name    string                 `json:"name"`
+	Details map[string]interface{} `json:"details"`
+}
+
+// Get handles GET /api/v1/profiles/{id}.
+func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	profileID, err := uuid.Parse(idStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_profile_id", "Profile ID must be a valid UUID")
+		return
+	}
+
+	profile, err := h.profileSvc.GetProfile(r.Context(), user.ID, profileID)
+	if err != nil {
+		if errors.Is(err, domain.ErrProfileNotOwned) {
+			writeError(w, http.StatusForbidden, "forbidden", "Profile does not belong to you")
+			return
+		}
+		if errors.Is(err, domain.ErrProfileNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "Profile not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
+		return
+	}
+
+	var details map[string]interface{}
+	json.Unmarshal(profile.Details, &details)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(ProfileResponse{
+		ID:        profile.ID.String(),
+		Type:      string(profile.Type),
+		Name:      profile.Name,
+		Details:   details,
+		CreatedAt: profile.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt: profile.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	})
+}
+
+// Update handles PATCH /api/v1/profiles/{id}.
+func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	profileID, err := uuid.Parse(idStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_profile_id", "Profile ID must be a valid UUID")
+		return
+	}
+
+	var req UpdateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "Request body must be valid JSON")
+		return
+	}
+
+	serviceReq := &service.UpdateProfileRequest{
+		Name:    req.Name,
+		Details: req.Details,
+	}
+
+	profile, err := h.profileSvc.UpdateProfile(r.Context(), user.ID, profileID, serviceReq)
+	if err != nil {
+		if errors.Is(err, domain.ErrProfileNotOwned) {
+			writeError(w, http.StatusForbidden, "forbidden", "Profile does not belong to you")
+			return
+		}
+		if errors.Is(err, domain.ErrProfileNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "Profile not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
+		return
+	}
+
+	var details map[string]interface{}
+	json.Unmarshal(profile.Details, &details)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(ProfileResponse{
+		ID:        profile.ID.String(),
+		Type:      string(profile.Type),
+		Name:      profile.Name,
+		Details:   details,
+		CreatedAt: profile.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt: profile.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	})
+}
+
+// Delete handles DELETE /api/v1/profiles/{id}.
+func (h *ProfileHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "Authentication required")
+		return
+	}
+
+	idStr := chi.URLParam(r, "id")
+	profileID, err := uuid.Parse(idStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_profile_id", "Profile ID must be a valid UUID")
+		return
+	}
+
+	err = h.profileSvc.DeleteProfile(r.Context(), user.ID, profileID)
+	if err != nil {
+		if errors.Is(err, domain.ErrProfileNotOwned) {
+			writeError(w, http.StatusForbidden, "forbidden", "Profile does not belong to you")
+			return
+		}
+		if errors.Is(err, domain.ErrProfileNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", "Profile not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

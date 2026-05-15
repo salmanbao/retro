@@ -172,19 +172,19 @@
 
 ### Tests for User Story 5
 
-- [ ] T063 [P] [US5] Unit test for active profile switching in `backend/tests/unit/session_service_test.go`
-- [ ] T064 [P] [US5] Unit test for role-based access control checks in `backend/tests/unit/auth_middleware_test.go`
-- [ ] T065 [US5] Integration test for profile switching in `backend/tests/integration/session_service_test.go`
-- [ ] T066 [US5] Contract test for PATCH /sessions/active endpoint
+- [X] T063 [P] [US5] Unit test for active profile switching in `backend/tests/unit/session_service_test.go`
+- [X] T064 [P] [US5] Unit test for role-based access control checks in `backend/tests/unit/auth_middleware_test.go`
+- [X] T065 [US5] Integration test for profile switching in `backend/tests/integration/session_service_test.go`
+- [X] T066 [US5] Contract test for PATCH /sessions/active endpoint
 
 ### Implementation for User Story 5
 
-- [ ] T067 [P] [US5] Implement SwitchActiveProfile method in `backend/src/service/session_service.go`
-- [ ] T068 [P] [US5] Implement RBAC check helper in `backend/src/service/auth_service.go`
-- [ ] T069 [US5] Create PATCH /sessions/active endpoint for profile switching
-- [ ] T070 [US5] Update auth middleware to inject active profile context into request
-- [ ] T071 [US5] Add profile ownership validation (user can only activate their own profiles)
-- [ ] T072 [US5] Add role-restricted endpoint guard middleware
+- [X] T067 [P] [US5] Implement SwitchActiveProfile method in `backend/src/service/session_service.go`
+- [X] T068 [P] [US5] Implement RBAC check helper in `backend/src/service/auth_service.go`
+- [X] T069 [US5] Create PATCH /sessions/active endpoint for profile switching
+- [X] T070 [US5] Update auth middleware to inject active profile context into request
+- [X] T071 [US5] Add profile ownership validation (user can only activate their own profiles)
+- [X] T072 [US5] Add role-restricted endpoint guard middleware
 
 **Checkpoint**: User Story 5 fully functional and testable independently
 
@@ -198,21 +198,21 @@
 
 ### Tests for User Story 6
 
-- [ ] T073 [P] [US6] Unit test for profile update in `backend/tests/unit/profile_service_test.go`
-- [ ] T074 [P] [US6] Unit test for profile soft-delete in `backend/tests/unit/profile_service_test.go`
-- [ ] T075 [US6] Integration test for profile update and delete in `backend/tests/integration/profile_service_test.go`
-- [ ] T076 [US6] Contract test for GET /profiles/{id}, PATCH /profiles/{id}, DELETE /profiles/{id} endpoints
+- [X] T073 [P] [US6] Unit test for profile update in `backend/tests/unit/profile_service_test.go`
+- [X] T074 [P] [US6] Unit test for profile soft-delete in `backend/tests/unit/profile_service_test.go`
+- [X] T075 [US6] Integration test for profile update and delete in `backend/tests/integration/profile_service_test.go`
+- [X] T076 [US6] Contract test for GET /profiles/{id}, PATCH /profiles/{id}, DELETE /profiles/{id} endpoints
 
 ### Implementation for User Story 6
 
-- [ ] T077 [P] [US6] Implement GetProfile method in `backend/src/service/profile_service.go`
-- [ ] T078 [P] [US6] Implement UpdateProfile method in `backend/src/service/profile_service.go`
-- [ ] T079 [US6] Implement DeleteProfile method in `backend/src/service/profile_service.go`
-- [ ] T080 [US6] Create GET /profiles/{profile_id} endpoint with ownership validation
-- [ ] T081 [US6] Create PATCH /profiles/{profile_id} endpoint with validation
-- [ ] T082 [US6] Create DELETE /profiles/{profile_id} endpoint with soft-delete (set deleted_at)
-- [ ] T083 [US6] Add updated_at timestamp update on profile modification
-- [ ] T084 [US6] Add validation that profile belongs to authenticated user
+- [X] T077 [P] [US6] Implement GetProfile method in `backend/src/service/profile_service.go`
+- [X] T078 [P] [US6] Implement UpdateProfile method in `backend/src/service/profile_service.go`
+- [X] T079 [US6] Implement DeleteProfile method in `backend/src/service/profile_service.go`
+- [X] T080 [US6] Create GET /profiles/{profile_id} endpoint with ownership validation
+- [X] T081 [US6] Create PATCH /profiles/{profile_id} endpoint with validation
+- [X] T082 [US6] Create DELETE /profiles/{profile_id} endpoint with soft-delete (set deleted_at)
+- [X] T083 [US6] Add updated_at timestamp update on profile modification
+- [X] T084 [US6] Add validation that profile belongs to authenticated user
 
 **Checkpoint**: User Story 6 fully functional and testable independently
 
@@ -222,14 +222,14 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T085 [P] Run all unit tests in `backend/tests/unit/` and fix any failures
-- [ ] T086 [P] Run all integration tests in `backend/tests/integration/` and fix any failures
-- [ ] T087 [P] Run all contract tests in `backend/tests/contract/` and fix any failures
-- [ ] T088 Add security hardening: rate limiting on auth endpoints (handled by infrastructure, noted for awareness)
-- [ ] T089 Add audit logging for security events (login, logout, password change) in `backend/src/service/auth_service.go`
-- [ ] T090 [P] Update quickstart.md with any environment-specific notes
-- [ ] T091 Verify implementation against spec.md acceptance criteria
-- [ ] T092 Run full test suite and confirm 100% pass rate
+- [X] T085 [P] Run all unit tests in `backend/tests/unit/` and fix any failures
+- [X] T086 [P] Run all integration tests in `backend/tests/integration/` and fix any failures
+- [X] T087 [P] Run all contract tests in `backend/tests/contract/` and fix any failures
+- [X] T088 Add security hardening: rate limiting on auth endpoints (handled by infrastructure, noted for awareness)
+- [X] T089 Add audit logging for security events (login, logout, password change) in `backend/src/service/auth_service.go`
+- [X] T090 [P] Update quickstart.md with any environment-specific notes
+- [X] T091 Verify implementation against spec.md acceptance criteria
+- [X] T092 Run full test suite and confirm 100% pass rate
 
 ---
 

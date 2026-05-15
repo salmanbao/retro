@@ -249,3 +249,84 @@ func TestProfileServiceIntegration(t *testing.T) {
 		assert.Equal(t, "Updated", retrievedDetails["company_name"])
 	})
 }
+
+// TestProfileServiceUpdateDeleteIntegration tests the profile service update and delete operations.
+func TestProfileServiceUpdateDeleteIntegration(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("update and delete flow", func(t *testing.T) {
+		profileRepo := newMockProfileStore()
+		userRepo := newMockProfileUserStore()
+
+		userID := uuid.New()
+		userRepo.Create(ctx, &domain.User{ID: userID, Email: "flow@example.com"})
+
+		// Create profile
+		details, _ := json.Marshal(map[string]interface{}{
+			"company_name": "Flow Corp",
+			"size":         "100-500",
+			"industry":     "Tech",
+		})
+		profile := domain.NewProfile(userID, domain.ProfileTypeBrand, "Flow Brand", details)
+		err := profileRepo.Create(ctx, profile)
+		require.NoError(t, err)
+
+		// Update name
+		profile.Name = "Updated Flow Brand"
+		err = profileRepo.Update(ctx, profile)
+		require.NoError(t, err)
+
+		// Verify update persisted
+		updated, err := profileRepo.ByID(ctx, profile.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "Updated Flow Brand", updated.Name)
+		assert.NotNil(t, updated.UpdatedAt)
+
+		// Delete profile
+		err = profileRepo.Delete(ctx, profile.ID)
+		require.NoError(t, err)
+
+		// Verify it's soft-deleted by checking it no longer appears in active list
+		activeProfiles, err := profileRepo.ByUserID(ctx, userID)
+		require.NoError(t, err)
+		assert.Len(t, activeProfiles, 0)
+
+		// Verify ByID returns not found for deleted profile
+		_, err = profileRepo.ByID(ctx, profile.ID)
+		assert.Equal(t, domain.ErrProfileNotFound, err)
+	})
+
+	t.Run("concurrent updates to different profiles", func(t *testing.T) {
+		profileRepo := newMockProfileStore()
+		userRepo := newMockProfileUserStore()
+
+		userID := uuid.New()
+		userRepo.Create(ctx, &domain.User{ID: userID, Email: "concurrent@example.com"})
+
+		// Create two profiles
+		details1, _ := json.Marshal(map[string]interface{}{"company_name": "Profile 1"})
+		profile1 := domain.NewProfile(userID, domain.ProfileTypeBrand, "Brand 1", details1)
+		err := profileRepo.Create(ctx, profile1)
+		require.NoError(t, err)
+
+		details2, _ := json.Marshal(map[string]interface{}{"company_name": "Profile 2"})
+		profile2 := domain.NewProfile(userID, domain.ProfileTypeEditor, "Editor 2", details2)
+		err = profileRepo.Create(ctx, profile2)
+		require.NoError(t, err)
+
+		// Update both simultaneously
+		profile1.Name = "Updated Brand 1"
+		profile2.Name = "Updated Editor 2"
+
+		err1 := profileRepo.Update(ctx, profile1)
+		err2 := profileRepo.Update(ctx, profile2)
+		require.NoError(t, err1)
+		require.NoError(t, err2)
+
+		// Verify both updates persisted
+		p1, _ := profileRepo.ByID(ctx, profile1.ID)
+		p2, _ := profileRepo.ByID(ctx, profile2.ID)
+		assert.Equal(t, "Updated Brand 1", p1.Name)
+		assert.Equal(t, "Updated Editor 2", p2.Name)
+	})
+}

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"viralforge/backend/src/domain"
 	"viralforge/backend/src/repository"
 )
@@ -17,6 +18,8 @@ const (
 	UserContextKey contextKey = "user"
 	// SessionContextKey is the context key for the current session.
 	SessionContextKey contextKey = "session"
+	// ActiveProfileIDKey is the context key for the active profile ID.
+	ActiveProfileIDKey contextKey = "active_profile_id"
 )
 
 // AuthMiddleware handles session-based authentication.
@@ -62,6 +65,9 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(r.Context(), SessionContextKey, session)
 		ctx = context.WithValue(ctx, UserContextKey, user)
+		if session.ActiveProfileID != nil {
+			ctx = context.WithValue(ctx, ActiveProfileIDKey, *session.ActiveProfileID)
+		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -97,6 +103,14 @@ func GetUserFromContext(ctx context.Context) *domain.User {
 func GetSessionFromContext(ctx context.Context) *domain.Session {
 	if session, ok := ctx.Value(SessionContextKey).(*domain.Session); ok {
 		return session
+	}
+	return nil
+}
+
+// GetActiveProfileID retrieves the active profile ID from the context.
+func GetActiveProfileID(ctx context.Context) *uuid.UUID {
+	if id, ok := ctx.Value(ActiveProfileIDKey).(uuid.UUID); ok {
+		return &id
 	}
 	return nil
 }

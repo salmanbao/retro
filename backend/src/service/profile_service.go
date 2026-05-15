@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"viralforge/backend/src/domain"
@@ -145,4 +146,72 @@ func (s *ProfileService) GetProfile(ctx context.Context, userID, profileID uuid.
 	}
 
 	return profile, nil
+}
+
+// UpdateProfileRequest represents a profile update request.
+type UpdateProfileRequest struct {
+	Name    string                 `json:"name"`
+	Details map[string]interface{} `json:"details"`
+}
+
+// UpdateProfile updates an existing profile.
+func (s *ProfileService) UpdateProfile(ctx context.Context, userID, profileID uuid.UUID, req *UpdateProfileRequest) (*domain.Profile, error) {
+	profile, err := s.profileRepo.ByID(ctx, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure profile belongs to user
+	if profile.UserID != userID {
+		return nil, domain.ErrProfileNotOwned
+	}
+
+	if profile.IsDeleted() {
+		return nil, domain.ErrProfileNotFound
+	}
+
+	// Update fields if provided
+	if req.Name != "" {
+		profile.Name = req.Name
+	}
+
+	if req.Details != nil {
+		// Validate type-specific details if they are being updated
+		if err := ValidateProfileType(profile.Type, req.Details); err != nil {
+			return nil, err
+		}
+		detailsJSON, err := json.Marshal(req.Details)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal profile details: %w", err)
+		}
+		profile.Details = detailsJSON
+	}
+
+	// Update timestamp
+	profile.UpdatedAt = time.Now()
+
+	if err := s.profileRepo.Update(ctx, profile); err != nil {
+		return nil, err
+	}
+
+	return profile, nil
+}
+
+// DeleteProfile soft-deletes a profile.
+func (s *ProfileService) DeleteProfile(ctx context.Context, userID, profileID uuid.UUID) error {
+	profile, err := s.profileRepo.ByID(ctx, profileID)
+	if err != nil {
+		return err
+	}
+
+	// Ensure profile belongs to user
+	if profile.UserID != userID {
+		return domain.ErrProfileNotOwned
+	}
+
+	if profile.IsDeleted() {
+		return domain.ErrProfileNotFound
+	}
+
+	return s.profileRepo.Delete(ctx, profileID)
 }

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"viralforge/backend/src/domain"
@@ -378,5 +379,270 @@ func TestContractListProfilesEndpoint(t *testing.T) {
 		h.List(w, req)
 
 		assert.Equal(t, http.StatusUnauthorized, w.Code)
+	})
+}
+
+// TestContractGetProfileEndpoint tests GET /api/v1/profiles/{id} contract.
+func TestContractGetProfileEndpoint(t *testing.T) {
+	t.Run("200 OK - get own profile", func(t *testing.T) {
+		h, profileRepo, userRepo := setupTestProfileHandler()
+
+		userID := uuid.New()
+		userRepo.Create(context.Background(), &domain.User{ID: userID, Email: "get@example.com"})
+
+		details, _ := json.Marshal(map[string]interface{}{"company_name": "GetTest"})
+		profile := domain.NewProfile(userID, domain.ProfileTypeBrand, "Get Test Brand", details)
+		profileRepo.Create(context.Background(), profile)
+
+		r := chi.NewRouter()
+		r.Get("/{id}", h.Get)
+
+		req := httptest.NewRequest(http.MethodGet, "/"+profile.ID.String(), nil)
+		w := httptest.NewRecorder()
+
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, userRepo.users[userID])
+		req = req.WithContext(ctx)
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp handler.ProfileResponse
+		json.NewDecoder(w.Body).Decode(&resp)
+		assert.Equal(t, "Get Test Brand", resp.Name)
+	})
+
+	t.Run("400 Bad Request - invalid UUID", func(t *testing.T) {
+		h, _, _ := setupTestProfileHandler()
+
+		r := chi.NewRouter()
+		r.Get("/{id}", h.Get)
+
+		req := httptest.NewRequest(http.MethodGet, "/not-a-uuid", nil)
+		w := httptest.NewRecorder()
+
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &domain.User{ID: uuid.New()})
+		req = req.WithContext(ctx)
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("403 Forbidden - profile belongs to another user", func(t *testing.T) {
+		h, profileRepo, userRepo := setupTestProfileHandler()
+
+		ownerID := uuid.New()
+		otherID := uuid.New()
+		userRepo.Create(context.Background(), &domain.User{ID: ownerID, Email: "owner@example.com"})
+		userRepo.Create(context.Background(), &domain.User{ID: otherID, Email: "other@example.com"})
+
+		details, _ := json.Marshal(map[string]interface{}{"company_name": "OwnerProfile"})
+		profile := domain.NewProfile(ownerID, domain.ProfileTypeBrand, "Owner Brand", details)
+		profileRepo.Create(context.Background(), profile)
+
+		r := chi.NewRouter()
+		r.Get("/{id}", h.Get)
+
+		req := httptest.NewRequest(http.MethodGet, "/"+profile.ID.String(), nil)
+		w := httptest.NewRecorder()
+
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, userRepo.users[otherID])
+		req = req.WithContext(ctx)
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusForbidden, w.Code)
+	})
+
+	t.Run("404 Not Found - profile not found", func(t *testing.T) {
+		h, _, _ := setupTestProfileHandler()
+
+		r := chi.NewRouter()
+		r.Get("/{id}", h.Get)
+
+		req := httptest.NewRequest(http.MethodGet, "/"+uuid.New().String(), nil)
+		w := httptest.NewRecorder()
+
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &domain.User{ID: uuid.New()})
+		req = req.WithContext(ctx)
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+	})
+}
+
+// TestContractUpdateProfileEndpoint tests PATCH /api/v1/profiles/{id} contract.
+func TestContractUpdateProfileEndpoint(t *testing.T) {
+	t.Run("200 OK - update own profile", func(t *testing.T) {
+		h, profileRepo, userRepo := setupTestProfileHandler()
+
+		userID := uuid.New()
+		userRepo.Create(context.Background(), &domain.User{ID: userID, Email: "update@example.com"})
+
+		details, _ := json.Marshal(map[string]interface{}{"company_name": "Original"})
+		profile := domain.NewProfile(userID, domain.ProfileTypeBrand, "Original Name", details)
+		profileRepo.Create(context.Background(), profile)
+
+		r := chi.NewRouter()
+		r.Patch("/{id}", h.Update)
+
+		reqBody := handler.UpdateProfileRequest{
+			Name: "Updated Name",
+		}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPatch, "/"+profile.ID.String(), bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, userRepo.users[userID])
+		req = req.WithContext(ctx)
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp handler.ProfileResponse
+		json.NewDecoder(w.Body).Decode(&resp)
+		assert.Equal(t, "Updated Name", resp.Name)
+	})
+
+	t.Run("400 Bad Request - invalid UUID", func(t *testing.T) {
+		h, _, _ := setupTestProfileHandler()
+
+		r := chi.NewRouter()
+		r.Patch("/{id}", h.Update)
+
+		reqBody := handler.UpdateProfileRequest{
+			Name: "Updated",
+		}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPatch, "/not-a-uuid", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &domain.User{ID: uuid.New()})
+		req = req.WithContext(ctx)
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("403 Forbidden - update profile of another user", func(t *testing.T) {
+		h, profileRepo, userRepo := setupTestProfileHandler()
+
+		ownerID := uuid.New()
+		otherID := uuid.New()
+		userRepo.Create(context.Background(), &domain.User{ID: ownerID, Email: "owner2@example.com"})
+		userRepo.Create(context.Background(), &domain.User{ID: otherID, Email: "other2@example.com"})
+
+		details, _ := json.Marshal(map[string]interface{}{"company_name": "OwnerProfile"})
+		profile := domain.NewProfile(ownerID, domain.ProfileTypeBrand, "Owner Brand", details)
+		profileRepo.Create(context.Background(), profile)
+
+		r := chi.NewRouter()
+		r.Patch("/{id}", h.Update)
+
+		reqBody := handler.UpdateProfileRequest{
+			Name: "Hacked Name",
+		}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPatch, "/"+profile.ID.String(), bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, userRepo.users[otherID])
+		req = req.WithContext(ctx)
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusForbidden, w.Code)
+	})
+}
+
+// TestContractDeleteProfileEndpoint tests DELETE /api/v1/profiles/{id} contract.
+func TestContractDeleteProfileEndpoint(t *testing.T) {
+	t.Run("204 No Content - delete own profile", func(t *testing.T) {
+		h, profileRepo, userRepo := setupTestProfileHandler()
+
+		userID := uuid.New()
+		userRepo.Create(context.Background(), &domain.User{ID: userID, Email: "delete@example.com"})
+
+		details, _ := json.Marshal(map[string]interface{}{"company_name": "DeleteMe"})
+		profile := domain.NewProfile(userID, domain.ProfileTypeBrand, "Delete Me", details)
+		profileRepo.Create(context.Background(), profile)
+
+		r := chi.NewRouter()
+		r.Delete("/{id}", h.Delete)
+
+		req := httptest.NewRequest(http.MethodDelete, "/"+profile.ID.String(), nil)
+		w := httptest.NewRecorder()
+
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, userRepo.users[userID])
+		req = req.WithContext(ctx)
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNoContent, w.Code)
+	})
+
+	t.Run("400 Bad Request - invalid UUID", func(t *testing.T) {
+		h, _, _ := setupTestProfileHandler()
+
+		r := chi.NewRouter()
+		r.Delete("/{id}", h.Delete)
+
+		req := httptest.NewRequest(http.MethodDelete, "/not-a-uuid", nil)
+		w := httptest.NewRecorder()
+
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &domain.User{ID: uuid.New()})
+		req = req.WithContext(ctx)
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("403 Forbidden - delete profile of another user", func(t *testing.T) {
+		h, profileRepo, userRepo := setupTestProfileHandler()
+
+		ownerID := uuid.New()
+		otherID := uuid.New()
+		userRepo.Create(context.Background(), &domain.User{ID: ownerID, Email: "owner3@example.com"})
+		userRepo.Create(context.Background(), &domain.User{ID: otherID, Email: "other3@example.com"})
+
+		details, _ := json.Marshal(map[string]interface{}{"company_name": "OwnerProfile"})
+		profile := domain.NewProfile(ownerID, domain.ProfileTypeBrand, "Owner Brand", details)
+		profileRepo.Create(context.Background(), profile)
+
+		r := chi.NewRouter()
+		r.Delete("/{id}", h.Delete)
+
+		req := httptest.NewRequest(http.MethodDelete, "/"+profile.ID.String(), nil)
+		w := httptest.NewRecorder()
+
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, userRepo.users[otherID])
+		req = req.WithContext(ctx)
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusForbidden, w.Code)
+	})
+
+	t.Run("404 Not Found - profile not found", func(t *testing.T) {
+		h, _, _ := setupTestProfileHandler()
+
+		r := chi.NewRouter()
+		r.Delete("/{id}", h.Delete)
+
+		req := httptest.NewRequest(http.MethodDelete, "/"+uuid.New().String(), nil)
+		w := httptest.NewRecorder()
+
+		ctx := context.WithValue(req.Context(), middleware.UserContextKey, &domain.User{ID: uuid.New()})
+		req = req.WithContext(ctx)
+
+		r.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
 	})
 }

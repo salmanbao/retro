@@ -289,3 +289,29 @@ func hashToken(token string) string {
 	// In production, use crypto/sha256
 	return token
 }
+
+// RBACCheckResult represents the result of an RBAC check.
+type RBACCheckResult struct {
+	Allowed bool
+	Reason  string
+}
+
+// CheckProfileAccess checks if a profile has access to perform an action.
+func CheckProfileAccess(profile *domain.Profile, requiredType domain.ProfileType) RBACCheckResult {
+	if profile == nil {
+		return RBACCheckResult{Allowed: false, Reason: "no active profile"}
+	}
+	if profile.Type != requiredType {
+		return RBACCheckResult{Allowed: false, Reason: "profile type does not match required type"}
+	}
+	return RBACCheckResult{Allowed: true}
+}
+
+// RequireBrandProfile is a helper to require a brand profile for an operation.
+func RequireBrandProfile(profile *domain.Profile) error {
+	result := CheckProfileAccess(profile, domain.ProfileTypeBrand)
+	if !result.Allowed {
+		return domain.ErrUnauthorized
+	}
+	return nil
+}

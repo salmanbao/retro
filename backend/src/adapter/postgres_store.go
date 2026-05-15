@@ -354,6 +354,92 @@ func scanToken(row pgx.Row) (*domain.AuthToken, error) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Campaign repository methods
+// ─────────────────────────────────────────────────────────────────────────────
+
+// CreateCampaign persists a new campaign record.
+func (s *PostgresStore) CreateCampaign(ctx context.Context, campaign *domain.Campaign) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO campaigns (id, brand_profile_id, title, description, raw_content_url, budget_total, editor_budget, influencer_budget, target_platforms, status, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+		campaign.ID, campaign.BrandProfileID, campaign.Title, campaign.Description,
+		campaign.RawContentURL, campaign.BudgetTotal, campaign.EditorBudget,
+		campaign.InfluencerBudget, campaign.TargetPlatforms, campaign.Status,
+		campaign.CreatedAt, campaign.UpdatedAt,
+	)
+	return err
+}
+
+// CampaignByID retrieves a campaign by ID.
+func (s *PostgresStore) CampaignByID(ctx context.Context, id uuid.UUID) (*domain.Campaign, error) {
+	row := s.pool.QueryRow(ctx,
+		`SELECT id, brand_profile_id, title, description, raw_content_url, budget_total, editor_budget, influencer_budget, target_platforms, status, created_at, updated_at
+		 FROM campaigns WHERE id = $1`,
+		id,
+	)
+	return scanCampaign(row)
+}
+
+// CampaignsByBrandProfileID retrieves all campaigns for a brand profile.
+func (s *PostgresStore) CampaignsByBrandProfileID(ctx context.Context, brandProfileID uuid.UUID) ([]*domain.Campaign, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, brand_profile_id, title, description, raw_content_url, budget_total, editor_budget, influencer_budget, target_platforms, status, created_at, updated_at
+		 FROM campaigns WHERE brand_profile_id = $1 ORDER BY created_at DESC`,
+		brandProfileID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var campaigns []*domain.Campaign
+	for rows.Next() {
+		campaign, err := scanCampaignRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		campaigns = append(campaigns, campaign)
+	}
+	return campaigns, rows.Err()
+}
+
+// UpdateCampaign updates an existing campaign record.
+func (s *PostgresStore) UpdateCampaign(ctx context.Context, campaign *domain.Campaign) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE campaigns SET title = $2, description = $3, raw_content_url = $4, budget_total = $5, editor_budget = $6, influencer_budget = $7, target_platforms = $8, status = $9, updated_at = $10 WHERE id = $1`,
+		campaign.ID, campaign.Title, campaign.Description, campaign.RawContentURL,
+		campaign.BudgetTotal, campaign.EditorBudget, campaign.InfluencerBudget,
+		campaign.TargetPlatforms, campaign.Status, campaign.UpdatedAt,
+	)
+	return err
+}
+
+func scanCampaign(row pgx.Row) (*domain.Campaign, error) {
+	var c domain.Campaign
+	err := row.Scan(&c.ID, &c.BrandProfileID, &c.Title, &c.Description,
+		&c.RawContentURL, &c.BudgetTotal, &c.EditorBudget, &c.InfluencerBudget,
+		&c.TargetPlatforms, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrCampaignNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func scanCampaignRows(rows pgx.Rows) (*domain.Campaign, error) {
+	var c domain.Campaign
+	err := rows.Scan(&c.ID, &c.BrandProfileID, &c.Title, &c.Description,
+		&c.RawContentURL, &c.BudgetTotal, &c.EditorBudget, &c.InfluencerBudget,
+		&c.TargetPlatforms, &c.Status, &c.CreatedAt, &c.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Repository interface wrappers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -436,12 +522,29 @@ func (r *tokenRepo) DeleteByUserIDAndType(ctx context.Context, uid uuid.UUID, tt
 	return r.DeleteTokensByUserIDAndType(ctx, uid, tt)
 }
 
+// campaignRepo adapts PostgresStore to satisfy repository.CampaignRepository.
+type campaignRepo struct{ *PostgresStore }
+
+func (r *campaignRepo) Create(ctx context.Context, campaign *domain.Campaign) error {
+	return r.CreateCampaign(ctx, campaign)
+}
+func (r *campaignRepo) ByID(ctx context.Context, id uuid.UUID) (*domain.Campaign, error) {
+	return r.CampaignByID(ctx, id)
+}
+func (r *campaignRepo) ByBrandProfileID(ctx context.Context, brandProfileID uuid.UUID) ([]*domain.Campaign, error) {
+	return r.CampaignsByBrandProfileID(ctx, brandProfileID)
+}
+func (r *campaignRepo) Update(ctx context.Context, campaign *domain.Campaign) error {
+	return r.UpdateCampaign(ctx, campaign)
+}
+
 // Compile-time interface checks.
 var (
-	_ repository.UserRepository    = (*userRepo)(nil)
-	_ repository.SessionRepository = (*sessionRepo)(nil)
-	_ repository.ProfileRepository = (*profileRepo)(nil)
-	_ repository.TokenRepository   = (*tokenRepo)(nil)
+	_ repository.UserRepository     = (*userRepo)(nil)
+	_ repository.SessionRepository  = (*sessionRepo)(nil)
+	_ repository.ProfileRepository  = (*profileRepo)(nil)
+	_ repository.TokenRepository    = (*tokenRepo)(nil)
+	_ repository.CampaignRepository = (*campaignRepo)(nil)
 )
 
 // UserRepository returns a repository.UserRepository backed by PostgresStore.
@@ -455,3 +558,6 @@ func (s *PostgresStore) ProfileRepository() repository.ProfileRepository { retur
 
 // TokenRepository returns a repository.TokenRepository backed by PostgresStore.
 func (s *PostgresStore) TokenRepository() repository.TokenRepository { return &tokenRepo{s} }
+
+// CampaignRepository returns a repository.CampaignRepository backed by PostgresStore.
+func (s *PostgresStore) CampaignRepository() repository.CampaignRepository { return &campaignRepo{s} }

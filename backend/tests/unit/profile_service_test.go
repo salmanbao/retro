@@ -455,3 +455,156 @@ func TestValidateProfileType(t *testing.T) {
 		assert.ErrorIs(t, err, domain.ErrInvalidProfileType)
 	})
 }
+
+// TestUpdateProfile tests the UpdateProfile method.
+func TestUpdateProfile(t *testing.T) {
+	ctx := context.Background()
+	profileRepo := newMockProfileRepo()
+	userRepo := newMockProfileUserRepo()
+	svc := service.NewProfileService(profileRepo, userRepo)
+
+	t.Run("successful update name", func(t *testing.T) {
+		userID := uuid.New()
+		userRepo.users[userID] = &domain.User{ID: userID}
+
+		details, _ := json.Marshal(map[string]interface{}{"company_name": "Acme", "size": "100-500", "industry": "Tech"})
+		profile := domain.NewProfile(userID, domain.ProfileTypeBrand, "Original Name", details)
+		profileRepo.Create(ctx, profile)
+
+		req := &service.UpdateProfileRequest{
+			Name: "Updated Name",
+		}
+		updated, err := svc.UpdateProfile(ctx, userID, profile.ID, req)
+		require.NoError(t, err)
+		assert.Equal(t, "Updated Name", updated.Name)
+	})
+
+	t.Run("successful update details", func(t *testing.T) {
+		userID := uuid.New()
+		userRepo.users[userID] = &domain.User{ID: userID}
+
+		details, _ := json.Marshal(map[string]interface{}{"company_name": "Acme", "size": "100-500", "industry": "Tech"})
+		profile := domain.NewProfile(userID, domain.ProfileTypeBrand, "Test Brand", details)
+		profileRepo.Create(ctx, profile)
+
+		newDetails := map[string]interface{}{
+			"company_name": "New Acme",
+			"size":         "500-1000",
+			"industry":     "Finance",
+		}
+		req := &service.UpdateProfileRequest{
+			Details: newDetails,
+		}
+		updated, err := svc.UpdateProfile(ctx, userID, profile.ID, req)
+		require.NoError(t, err)
+
+		var gotDetails map[string]interface{}
+		json.Unmarshal(updated.Details, &gotDetails)
+		assert.Equal(t, "New Acme", gotDetails["company_name"])
+		assert.Equal(t, "500-1000", gotDetails["size"])
+	})
+
+	t.Run("update non-existent profile", func(t *testing.T) {
+		userID := uuid.New()
+		userRepo.users[userID] = &domain.User{ID: userID}
+
+		req := &service.UpdateProfileRequest{
+			Name: "Test",
+		}
+		_, err := svc.UpdateProfile(ctx, userID, uuid.New(), req)
+		assert.ErrorIs(t, err, domain.ErrProfileNotFound)
+	})
+
+	t.Run("update profile of another user", func(t *testing.T) {
+		ownerID := uuid.New()
+		otherID := uuid.New()
+		userRepo.users[ownerID] = &domain.User{ID: ownerID}
+		userRepo.users[otherID] = &domain.User{ID: otherID}
+
+		details, _ := json.Marshal(map[string]interface{}{"company_name": "Acme", "size": "100-500", "industry": "Tech"})
+		profile := domain.NewProfile(ownerID, domain.ProfileTypeBrand, "Test Brand", details)
+		profileRepo.Create(ctx, profile)
+
+		req := &service.UpdateProfileRequest{
+			Name: "Hacked",
+		}
+		_, err := svc.UpdateProfile(ctx, otherID, profile.ID, req)
+		assert.ErrorIs(t, err, domain.ErrProfileNotOwned)
+	})
+
+	t.Run("update deleted profile", func(t *testing.T) {
+		userID := uuid.New()
+		userRepo.users[userID] = &domain.User{ID: userID}
+
+		details, _ := json.Marshal(map[string]interface{}{"company_name": "Acme", "size": "100-500", "industry": "Tech"})
+		profile := domain.NewProfile(userID, domain.ProfileTypeBrand, "Deleted Brand", details)
+		profile.SoftDelete()
+		profileRepo.Create(ctx, profile)
+
+		req := &service.UpdateProfileRequest{
+			Name: "Updated",
+		}
+		_, err := svc.UpdateProfile(ctx, userID, profile.ID, req)
+		assert.ErrorIs(t, err, domain.ErrProfileNotFound)
+	})
+}
+
+// TestDeleteProfile tests the DeleteProfile method.
+func TestDeleteProfile(t *testing.T) {
+	ctx := context.Background()
+	profileRepo := newMockProfileRepo()
+	userRepo := newMockProfileUserRepo()
+	svc := service.NewProfileService(profileRepo, userRepo)
+
+	t.Run("successful delete", func(t *testing.T) {
+		userID := uuid.New()
+		userRepo.users[userID] = &domain.User{ID: userID}
+
+		details, _ := json.Marshal(map[string]interface{}{"company_name": "Acme", "size": "100-500", "industry": "Tech"})
+		profile := domain.NewProfile(userID, domain.ProfileTypeBrand, "Test Brand", details)
+		profileRepo.Create(ctx, profile)
+
+		err := svc.DeleteProfile(ctx, userID, profile.ID)
+		require.NoError(t, err)
+
+		// Verify profile is soft-deleted
+		deleted, err := profileRepo.ByID(ctx, profile.ID)
+		require.NoError(t, err)
+		assert.True(t, deleted.IsDeleted())
+	})
+
+	t.Run("delete non-existent profile", func(t *testing.T) {
+		userID := uuid.New()
+		userRepo.users[userID] = &domain.User{ID: userID}
+
+		err := svc.DeleteProfile(ctx, userID, uuid.New())
+		assert.ErrorIs(t, err, domain.ErrProfileNotFound)
+	})
+
+	t.Run("delete profile of another user", func(t *testing.T) {
+		ownerID := uuid.New()
+		otherID := uuid.New()
+		userRepo.users[ownerID] = &domain.User{ID: ownerID}
+		userRepo.users[otherID] = &domain.User{ID: otherID}
+
+		details, _ := json.Marshal(map[string]interface{}{"company_name": "Acme", "size": "100-500", "industry": "Tech"})
+		profile := domain.NewProfile(ownerID, domain.ProfileTypeBrand, "Test Brand", details)
+		profileRepo.Create(ctx, profile)
+
+		err := svc.DeleteProfile(ctx, otherID, profile.ID)
+		assert.ErrorIs(t, err, domain.ErrProfileNotOwned)
+	})
+
+	t.Run("delete already deleted profile", func(t *testing.T) {
+		userID := uuid.New()
+		userRepo.users[userID] = &domain.User{ID: userID}
+
+		details, _ := json.Marshal(map[string]interface{}{"company_name": "Acme", "size": "100-500", "industry": "Tech"})
+		profile := domain.NewProfile(userID, domain.ProfileTypeBrand, "Already Deleted", details)
+		profile.SoftDelete()
+		profileRepo.Create(ctx, profile)
+
+		err := svc.DeleteProfile(ctx, userID, profile.ID)
+		assert.ErrorIs(t, err, domain.ErrProfileNotFound)
+	})
+}

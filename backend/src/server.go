@@ -59,6 +59,18 @@ func (s *Server) Setup() {
 	)
 	profileHandler := handler.NewProfileHandler(profileSvc)
 
+	campaignSvc := service.NewCampaignService(
+		s.store.CampaignRepository(),
+		s.store.ProfileRepository(),
+	)
+	campaignHandler := handler.NewCampaignHandler(campaignSvc)
+
+	sessionSvc := service.NewSessionService(
+		s.store.SessionRepository(),
+		s.store.ProfileRepository(),
+	)
+	sessionHandler := handler.NewSessionHandler(sessionSvc)
+
 	s.router.Route("/api/v1/auth", func(r chi.Router) {
 		authHandler.RegisterRoutes(r)
 	})
@@ -66,6 +78,22 @@ func (s *Server) Setup() {
 	s.router.Route("/api/v1/auth/me", func(r chi.Router) {
 		r.Use(authMiddleware.Authenticate)
 		r.Get("/me", authHandler.Me)
+	})
+	// Protected profile routes
+	s.router.Route("/api/v1/profiles", func(r chi.Router) {
+		r.Use(authMiddleware.Authenticate)
+		profileHandler.RegisterRoutes(r)
+	})
+	// Protected campaign routes
+	s.router.Route("/api/v1/campaigns", func(r chi.Router) {
+		r.Use(authMiddleware.Authenticate)
+		campaignHandler.RegisterRoutes(r)
+	})
+	// Protected session routes
+	s.router.Route("/api/v1/sessions", func(r chi.Router) {
+		r.Use(authMiddleware.Authenticate)
+		r.Patch("/active", sessionHandler.SwitchActiveProfile)
+		sessionHandler.RegisterRoutes(r)
 	})
 	// Protected profile routes
 	s.router.Route("/api/v1/profiles", func(r chi.Router) {
