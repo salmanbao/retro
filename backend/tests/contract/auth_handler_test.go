@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/bcrypt"
 	"viralforge/backend/src/domain"
 	"viralforge/backend/src/handler"
 	"viralforge/backend/src/service"
@@ -358,6 +359,187 @@ func TestContractVerifyEmailEndpoint(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		h.VerifyEmail(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		var resp handler.ErrorResponse
+		json.NewDecoder(w.Body).Decode(&resp)
+		assert.Equal(t, "invalid_token", resp.Error)
+	})
+}
+
+// TestContractForgotPasswordEndpoint tests POST /api/v1/auth/forgot-password contract.
+func TestContractForgotPasswordEndpoint(t *testing.T) {
+	t.Run("200 OK - email exists, reset sent", func(t *testing.T) {
+		h, userRepo, _, emailSvc := setupTestHandler()
+
+		passwordHash, _ := bcrypt.GenerateFromPassword([]byte("Password123!"), 12)
+		user := &domain.User{
+			ID:           uuid.New(),
+			Email:        "reset-test@example.com",
+			PasswordHash: string(passwordHash),
+			Verified:     true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+		userRepo.Create(context.Background(), user)
+
+		reqBody := handler.ForgotPasswordRequest{Email: "reset-test@example.com"}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/forgot-password", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		h.ForgotPassword(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp map[string]string
+		json.NewDecoder(w.Body).Decode(&resp)
+		assert.Contains(t, resp["message"], "reset link has been sent")
+		// Verify email was sent
+		assert.Len(t, emailSvc.sent, 1)
+	})
+
+	t.Run("200 OK - email not found returns same response (security)", func(t *testing.T) {
+		h, _, _, _ := setupTestHandler()
+
+		reqBody := handler.ForgotPasswordRequest{Email: "nonexistent@example.com"}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/forgot-password", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		h.ForgotPassword(w, req)
+
+		// Should return same 200 response to prevent email enumeration
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp map[string]string
+		json.NewDecoder(w.Body).Decode(&resp)
+		assert.Contains(t, resp["message"], "reset link has been sent")
+	})
+
+	t.Run("400 Bad Request - invalid JSON", func(t *testing.T) {
+		h, _, _, _ := setupTestHandler()
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/forgot-password", bytes.NewReader([]byte("not json")))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		h.ForgotPassword(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("400 Bad Request - missing email", func(t *testing.T) {
+		h, _, _, _ := setupTestHandler()
+
+		reqBody := handler.ForgotPasswordRequest{Email: ""}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/forgot-password", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		h.ForgotPassword(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+}
+
+// TestContractResetPasswordEndpoint tests POST /api/v1/auth/reset-password contract.
+func TestContractResetPasswordEndpoint(t *testing.T) {
+	t.Run("200 OK - valid token and password", func(t *testing.T) {
+		h, userRepo, tokenRepo, _ := setupTestHandler()
+
+		passwordHash, _ := bcrypt.GenerateFromPassword([]byte("OldPassword123!"), 12)
+		user := &domain.User{
+			ID:           uuid.New(),
+			Email:        "reset-confirm@example.com",
+			PasswordHash: string(passwordHash),
+			Verified:     true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+		userRepo.Create(context.Background(), user)
+
+		tokenHash := "valid-reset-token"
+		token := domain.NewAuthToken(user.ID, domain.TokenTypePasswordReset, tokenHash, time.Now().Add(1*time.Hour))
+		tokenRepo.Create(context.Background(), token)
+
+		reqBody := handler.ResetPasswordRequest{Token: tokenHash, NewPassword: "NewPassword123!"}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/reset-password", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		h.ResetPassword(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp map[string]string
+		json.NewDecoder(w.Body).Decode(&resp)
+		assert.Contains(t, resp["message"], "Password reset successfully")
+	})
+
+	t.Run("400 Bad Request - missing token", func(t *testing.T) {
+		h, _, _, _ := setupTestHandler()
+
+		reqBody := handler.ResetPasswordRequest{Token: "", NewPassword: "NewPassword123!"}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/reset-password", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		h.ResetPassword(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("400 Bad Request - missing new password", func(t *testing.T) {
+		h, _, _, _ := setupTestHandler()
+
+		reqBody := handler.ResetPasswordRequest{Token: "some-token", NewPassword: ""}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/reset-password", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		h.ResetPassword(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("400 Bad Request - invalid password format", func(t *testing.T) {
+		h, userRepo, tokenRepo, _ := setupTestHandler()
+
+		user := domain.NewUser("weak@example.com", "hash")
+		userRepo.Create(context.Background(), user)
+
+		tokenHash := "weak-token"
+		token := domain.NewAuthToken(user.ID, domain.TokenTypePasswordReset, tokenHash, time.Now().Add(1*time.Hour))
+		tokenRepo.Create(context.Background(), token)
+
+		reqBody := handler.ResetPasswordRequest{Token: tokenHash, NewPassword: "weak"}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/reset-password", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		h.ResetPassword(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		var resp handler.ErrorResponse
+		json.NewDecoder(w.Body).Decode(&resp)
+		assert.Equal(t, "invalid_password", resp.Error)
+	})
+
+	t.Run("400 Bad Request - invalid token", func(t *testing.T) {
+		h, _, _, _ := setupTestHandler()
+
+		reqBody := handler.ResetPasswordRequest{Token: "nonexistent-token", NewPassword: "NewPassword123!"}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/reset-password", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		h.ResetPassword(w, req)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 		var resp handler.ErrorResponse

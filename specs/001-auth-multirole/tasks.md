@@ -118,21 +118,21 @@
 
 ### Tests for User Story 3
 
-- [ ] T041 [P] [US3] Unit test for password reset request in `backend/tests/unit/auth_service_test.go`
-- [ ] T042 [P] [US3] Unit test for password reset confirmation in `backend/tests/unit/auth_service_test.go`
-- [ ] T043 [US3] Integration test for password reset flow in `backend/tests/integration/auth_service_test.go`
-- [ ] T044 [US3] Contract test for POST /auth/password-reset-request and POST /auth/password-reset-confirm endpoints
+- [X] T041 [P] [US3] Unit test for password reset request in `backend/tests/unit/auth_service_test.go`
+- [X] T042 [P] [US3] Unit test for password reset confirmation in `backend/tests/unit/auth_service_test.go`
+- [X] T043 [US3] Integration test for password reset flow in `backend/tests/integration/auth_service_test.go`
+- [X] T044 [US3] Contract test for POST /auth/password-reset-request and POST /auth/password-reset-confirm endpoints
 
 ### Implementation for User Story 3
 
-- [ ] T045 [P] [US3] Implement RequestPasswordReset method in `backend/src/service/auth_service.go`
-- [ ] T046 [P] [US3] Implement ConfirmPasswordReset method in `backend/src/service/auth_service.go`
-- [ ] T047 [US3] Create POST /auth/password-reset-request endpoint (returns 200 even if email not found, per security requirement)
-- [ ] T048 [US3] Create POST /auth/password-reset-confirm endpoint with token and password validation
-- [ ] T049 [US3] Add password reset token generation and storage in auth_tokens table
-- [ ] T050 [US3] Add session invalidation on password reset
-- [ ] T051 [US3] Add email sending via adapter for reset emails
-- [ ] T052 [US3] Add password strength validation (8+ chars, uppercase, lowercase, number, special char)
+- [X] T045 [P] [US3] Implement RequestPasswordReset method in `backend/src/service/auth_service.go`
+- [X] T046 [P] [US3] Implement ConfirmPasswordReset method in `backend/src/service/auth_service.go`
+- [X] T047 [US3] Create POST /auth/password-reset-request endpoint (returns 200 even if email not found, per security requirement)
+- [X] T048 [US3] Create POST /auth/password-reset-confirm endpoint with token and password validation
+- [X] T049 [US3] Add password reset token generation and storage in auth_tokens table
+- [X] T050 [US3] Add session invalidation on password reset
+- [X] T051 [US3] Add email sending via adapter for reset emails
+- [X] T052 [US3] Add password strength validation (8+ chars, uppercase, lowercase, number, special char)
 
 **Checkpoint**: User Story 3 fully functional and testable independently
 

@@ -211,12 +211,81 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ForgotPasswordRequest represents the password reset request body.
+type ForgotPasswordRequest struct {
+	Email string `json:"email"`
+}
+
+// ForgotPassword handles POST /api/v1/auth/forgot-password.
+// Always returns 200 OK to prevent email enumeration attacks.
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	var req ForgotPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "Request body must be valid JSON")
+		return
+	}
+
+	if req.Email == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "Email is required")
+		return
+	}
+
+	// Always return success to prevent email enumeration
+	h.authSvc.RequestPasswordReset(r.Context(), req.Email)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "If an account exists with this email, a password reset link has been sent."})
+}
+
+// ResetPasswordRequest represents the password reset confirmation body.
+type ResetPasswordRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
+}
+
+// ResetPassword handles POST /api/v1/auth/reset-password.
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	var req ResetPasswordRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_request", "Request body must be valid JSON")
+		return
+	}
+
+	if req.Token == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "Token is required")
+		return
+	}
+	if req.NewPassword == "" {
+		writeError(w, http.StatusBadRequest, "validation_error", "New password is required")
+		return
+	}
+
+	err := h.authSvc.ConfirmPasswordReset(r.Context(), req.Token, req.NewPassword)
+	if err != nil {
+		if errors.Is(err, domain.ErrInvalidPasswordFormat) {
+			writeError(w, http.StatusBadRequest, "invalid_password", "Password must be at least 8 characters with uppercase, lowercase, number, and special character")
+		} else if errors.Is(err, domain.ErrTokenNotFound) || errors.Is(err, domain.ErrTokenExpired) || errors.Is(err, domain.ErrTokenAlreadyUsed) {
+			writeError(w, http.StatusBadRequest, "invalid_token", "Token is invalid, expired, or already used")
+		} else {
+			writeError(w, http.StatusInternalServerError, "internal_error", "An unexpected error occurred")
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Password reset successfully. Please log in with your new password."})
+}
+
 // RegisterRoutes registers auth routes on the router.
 func (h *AuthHandler) RegisterRoutes(r chi.Router) {
 	r.Post("/register", h.Register)
 	r.Post("/verify-email", h.VerifyEmail)
 	r.Post("/login", h.Login)
 	r.Post("/logout", h.Logout)
+	r.Post("/forgot-password", h.ForgotPassword)
+	r.Post("/reset-password", h.ResetPassword)
 	r.Get("/me", h.Me)
 }
 

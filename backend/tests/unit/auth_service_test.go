@@ -214,6 +214,11 @@ func hashPassword(password string) (string, error) {
 	return string(hash), nil
 }
 
+func verifyPassword(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
 // testableAuthService wraps AuthService for testing.
 type testableAuthService struct {
 	*service.AuthService
@@ -332,5 +337,223 @@ func TestLogout(t *testing.T) {
 	t.Run("session not found", func(t *testing.T) {
 		err := svc.Logout(ctx, "nonexistent-token")
 		assert.ErrorIs(t, err, domain.ErrSessionNotFound)
+	})
+}
+
+// TestRequestPasswordReset tests the RequestPasswordReset method.
+func TestRequestPasswordReset(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("successful password reset request", func(t *testing.T) {
+		userRepo := newMockUserRepo()
+		sessionRepo := newMockSessionRepo()
+		tokenRepo := newMockTokenRepo()
+		emailSvc := &mockEmailService{}
+		svc := newTestableAuthService(userRepo, sessionRepo, tokenRepo, emailSvc, "http://localhost:3000")
+
+		passwordHash, _ := hashPassword("Password123!")
+		user := &domain.User{
+			ID:           uuid.New(),
+			Email:        "reset@example.com",
+			PasswordHash: passwordHash,
+			Verified:     true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+		userRepo.Create(ctx, user)
+
+		err := svc.RequestPasswordReset(ctx, "reset@example.com")
+		require.NoError(t, err)
+
+		// Verify email was sent
+		assert.Len(t, emailSvc.sent, 1)
+		assert.Equal(t, "reset@example.com", emailSvc.sent[0].To)
+		assert.Contains(t, emailSvc.sent[0].Subject, "Password Reset")
+	})
+
+	t.Run("email not found returns success (security)", func(t *testing.T) {
+		userRepo := newMockUserRepo()
+		sessionRepo := newMockSessionRepo()
+		tokenRepo := newMockTokenRepo()
+		emailSvc := &mockEmailService{}
+		svc := newTestableAuthService(userRepo, sessionRepo, tokenRepo, emailSvc, "http://localhost:3000")
+
+		err := svc.RequestPasswordReset(ctx, "nonexistent@example.com")
+		require.NoError(t, err)
+		// No email should be sent
+		assert.Len(t, emailSvc.sent, 0)
+	})
+
+	t.Run("invalid email format", func(t *testing.T) {
+		userRepo := newMockUserRepo()
+		sessionRepo := newMockSessionRepo()
+		tokenRepo := newMockTokenRepo()
+		emailSvc := &mockEmailService{}
+		svc := newTestableAuthService(userRepo, sessionRepo, tokenRepo, emailSvc, "http://localhost:3000")
+
+		err := svc.RequestPasswordReset(ctx, "not-an-email")
+		assert.ErrorIs(t, err, domain.ErrInvalidEmailFormat)
+	})
+}
+
+// TestConfirmPasswordReset tests the ConfirmPasswordReset method.
+func TestConfirmPasswordReset(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("successful password reset", func(t *testing.T) {
+		userRepo := newMockUserRepo()
+		sessionRepo := newMockSessionRepo()
+		tokenRepo := newMockTokenRepo()
+		emailSvc := &mockEmailService{}
+		svc := newTestableAuthService(userRepo, sessionRepo, tokenRepo, emailSvc, "http://localhost:3000")
+
+		passwordHash, _ := hashPassword("OldPassword123!")
+		user := &domain.User{
+			ID:           uuid.New(),
+			Email:        "confirm@example.com",
+			PasswordHash: passwordHash,
+			Verified:     true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+		userRepo.Create(ctx, user)
+
+		// Create a valid reset token
+		resetToken := domain.NewAuthToken(user.ID, domain.TokenTypePasswordReset, generateTokenHash(), time.Now().Add(1*time.Hour))
+		tokenRepo.Create(ctx, resetToken)
+
+		// Confirm password reset with new password
+		err := svc.ConfirmPasswordReset(ctx, resetToken.TokenHash, "NewPassword123!")
+		require.NoError(t, err)
+
+		// Verify token is marked as used
+		usedToken, _ := tokenRepo.ByTokenHash(ctx, resetToken.TokenHash)
+		assert.True(t, usedToken.IsUsed())
+
+		// Verify password was updated
+		updatedUser, _ := userRepo.ByID(ctx, user.ID)
+		assert.True(t, verifyPassword("NewPassword123!", updatedUser.PasswordHash))
+	})
+
+	t.Run("invalid password format", func(t *testing.T) {
+		userRepo := newMockUserRepo()
+		sessionRepo := newMockSessionRepo()
+		tokenRepo := newMockTokenRepo()
+		emailSvc := &mockEmailService{}
+		svc := newTestableAuthService(userRepo, sessionRepo, tokenRepo, emailSvc, "http://localhost:3000")
+
+		passwordHash, _ := hashPassword("Password123!")
+		user := &domain.User{
+			ID:           uuid.New(),
+			Email:        "weak@example.com",
+			PasswordHash: passwordHash,
+			Verified:     true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+		userRepo.Create(ctx, user)
+
+		resetToken := domain.NewAuthToken(user.ID, domain.TokenTypePasswordReset, generateTokenHash(), time.Now().Add(1*time.Hour))
+		tokenRepo.Create(ctx, resetToken)
+
+		err := svc.ConfirmPasswordReset(ctx, resetToken.TokenHash, "weak")
+		assert.ErrorIs(t, err, domain.ErrInvalidPasswordFormat)
+	})
+
+	t.Run("expired token", func(t *testing.T) {
+		userRepo := newMockUserRepo()
+		sessionRepo := newMockSessionRepo()
+		tokenRepo := newMockTokenRepo()
+		emailSvc := &mockEmailService{}
+		svc := newTestableAuthService(userRepo, sessionRepo, tokenRepo, emailSvc, "http://localhost:3000")
+
+		passwordHash, _ := hashPassword("Password123!")
+		user := &domain.User{
+			ID:           uuid.New(),
+			Email:        "expired@example.com",
+			PasswordHash: passwordHash,
+			Verified:     true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+		userRepo.Create(ctx, user)
+
+		resetToken := domain.NewAuthToken(user.ID, domain.TokenTypePasswordReset, generateTokenHash(), time.Now().Add(-1*time.Hour))
+		tokenRepo.Create(ctx, resetToken)
+
+		err := svc.ConfirmPasswordReset(ctx, resetToken.TokenHash, "NewPassword123!")
+		assert.ErrorIs(t, err, domain.ErrTokenExpired)
+	})
+
+	t.Run("already used token", func(t *testing.T) {
+		userRepo := newMockUserRepo()
+		sessionRepo := newMockSessionRepo()
+		tokenRepo := newMockTokenRepo()
+		emailSvc := &mockEmailService{}
+		svc := newTestableAuthService(userRepo, sessionRepo, tokenRepo, emailSvc, "http://localhost:3000")
+
+		passwordHash, _ := hashPassword("Password123!")
+		user := &domain.User{
+			ID:           uuid.New(),
+			Email:        "used@example.com",
+			PasswordHash: passwordHash,
+			Verified:     true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+		userRepo.Create(ctx, user)
+
+		resetToken := domain.NewAuthToken(user.ID, domain.TokenTypePasswordReset, generateTokenHash(), time.Now().Add(1*time.Hour))
+		resetToken.MarkUsed()
+		tokenRepo.Create(ctx, resetToken)
+
+		err := svc.ConfirmPasswordReset(ctx, resetToken.TokenHash, "NewPassword123!")
+		assert.ErrorIs(t, err, domain.ErrTokenAlreadyUsed)
+	})
+
+	t.Run("invalid token", func(t *testing.T) {
+		userRepo := newMockUserRepo()
+		sessionRepo := newMockSessionRepo()
+		tokenRepo := newMockTokenRepo()
+		emailSvc := &mockEmailService{}
+		svc := newTestableAuthService(userRepo, sessionRepo, tokenRepo, emailSvc, "http://localhost:3000")
+
+		err := svc.ConfirmPasswordReset(ctx, "nonexistent-token", "NewPassword123!")
+		assert.ErrorIs(t, err, domain.ErrTokenNotFound)
+	})
+
+	t.Run("session invalidation after reset", func(t *testing.T) {
+		userRepo := newMockUserRepo()
+		sessionRepo := newMockSessionRepo()
+		tokenRepo := newMockTokenRepo()
+		emailSvc := &mockEmailService{}
+		svc := newTestableAuthService(userRepo, sessionRepo, tokenRepo, emailSvc, "http://localhost:3000")
+
+		passwordHash, _ := hashPassword("OldPassword123!")
+		user := &domain.User{
+			ID:           uuid.New(),
+			Email:        "invalidate@example.com",
+			PasswordHash: passwordHash,
+			Verified:     true,
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+		userRepo.Create(ctx, user)
+
+		// Create an active session
+		session := domain.NewSession(user.ID, generateTokenHash(), "TestAgent", "127.0.0.1", time.Now().Add(24*time.Hour))
+		sessionRepo.Create(ctx, session)
+
+		// Create a valid reset token
+		resetToken := domain.NewAuthToken(user.ID, domain.TokenTypePasswordReset, generateTokenHash(), time.Now().Add(1*time.Hour))
+		tokenRepo.Create(ctx, resetToken)
+
+		// Confirm password reset
+		err := svc.ConfirmPasswordReset(ctx, resetToken.TokenHash, "NewPassword123!")
+		require.NoError(t, err)
+
+		// Verify session was deleted
+		sessions, _ := sessionRepo.ByUserID(ctx, user.ID)
+		assert.Empty(t, sessions)
 	})
 }

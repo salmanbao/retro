@@ -155,6 +155,90 @@ func (s *AuthService) Logout(ctx context.Context, token string) error {
 	return nil
 }
 
+// RequestPasswordReset initiates a password reset flow by generating a reset token and sending an email.
+// It always returns nil (success) even if the email is not found, to prevent email enumeration attacks.
+func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error {
+	if !isValidEmail(email) {
+		return domain.ErrInvalidEmailFormat
+	}
+
+	// Look up user - but don't reveal if email exists
+	user, err := s.userRepo.ByEmail(ctx, email)
+	if err != nil {
+		// Return success even if user not found (security requirement)
+		return nil
+	}
+
+	// Generate password reset token
+	resetToken := domain.NewAuthToken(user.ID, domain.TokenTypePasswordReset, generateSecureToken(), time.Now().Add(1*time.Hour))
+	if err := s.tokenRepo.Create(ctx, resetToken); err != nil {
+		return fmt.Errorf("failed to create reset token: %w", err)
+	}
+
+	resetURL := fmt.Sprintf("%s/auth/reset-password?token=%s", s.baseURL, resetToken.TokenHash)
+	emailBody := fmt.Sprintf("Click the link to reset your password: %s\nThis link expires in 1 hour.", resetURL)
+	if err := s.emailSvc.SendEmail(ctx, email, "Password Reset Request", emailBody); err != nil {
+		return fmt.Errorf("failed to send reset email: %w", err)
+	}
+
+	return nil
+}
+
+// ConfirmPasswordReset validates a password reset token and updates the user's password.
+func (s *AuthService) ConfirmPasswordReset(ctx context.Context, token, newPassword string) error {
+	// Validate new password format
+	if !isValidPassword(newPassword) {
+		return domain.ErrInvalidPasswordFormat
+	}
+
+	// Find and validate the reset token
+	authToken, err := s.tokenRepo.ByTokenHash(ctx, token)
+	if err != nil {
+		return domain.ErrTokenNotFound
+	}
+
+	// Verify it's a password reset token
+	if authToken.TokenType != domain.TokenTypePasswordReset {
+		return domain.ErrTokenNotFound
+	}
+
+	if authToken.IsExpired() {
+		return domain.ErrTokenExpired
+	}
+	if authToken.IsUsed() {
+		return domain.ErrTokenAlreadyUsed
+	}
+
+	// Get the user
+	user, err := s.userRepo.ByID(ctx, authToken.UserID)
+	if err != nil {
+		return err
+	}
+
+	// Hash and update the new password
+	newPasswordHash, err := hashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+	user.PasswordHash = newPasswordHash
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return fmt.Errorf("failed to update user password: %w", err)
+	}
+
+	// Mark token as used
+	authToken.MarkUsed()
+	if err := s.tokenRepo.Update(ctx, authToken); err != nil {
+		return fmt.Errorf("failed to mark token as used: %w", err)
+	}
+
+	// Invalidate all sessions for this user
+	if err := s.sessionRepo.DeleteByUserID(ctx, user.ID); err != nil {
+		return fmt.Errorf("failed to invalidate sessions: %w", err)
+	}
+
+	return nil
+}
+
 func isValidEmail(email string) bool {
 	return emailRegex.MatchString(email) && len(email) <= 255
 }
