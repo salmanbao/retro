@@ -6,8 +6,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"viralforge/backend/src/adapter"
+	"viralforge/backend/src/handler"
+	authMiddleware "viralforge/backend/src/middleware"
+	"viralforge/backend/src/service"
 )
 
 const timeout = 30 * time.Second
@@ -27,18 +30,36 @@ type Server struct {
 	cfg    *Config
 	store  *adapter.PostgresStore
 	email  adapter.EmailService
-	router chi.Router
+	router *chi.Mux
 }
 
 // Setup configures routing and middleware.
 func (s *Server) Setup() {
-	s.router.Use(middleware.RequestID)
-	s.router.Use(middleware.RealIP)
-	s.router.Use(middleware.Logger)
-	s.router.Use(middleware.Recoverer)
-	s.router.Use(middleware.Timeout(timeout))
+	s.router.Use(chiMiddleware.RequestID)
+	s.router.Use(chiMiddleware.RealIP)
+	s.router.Use(chiMiddleware.Logger)
+	s.router.Use(chiMiddleware.Recoverer)
+	s.router.Use(chiMiddleware.Timeout(timeout))
 
 	s.router.Get("/health", s.healthCheck)
+
+	authSvc := service.NewAuthService(
+		s.store.UserRepository(),
+		s.store.SessionRepository(),
+		s.store.TokenRepository(),
+		s.email,
+		s.cfg.BaseURL,
+	)
+	authHandler := handler.NewAuthHandler(authSvc)
+	authMiddleware := authMiddleware.NewAuthMiddleware(s.store.SessionRepository(), s.store.UserRepository())
+	s.router.Route("/api/v1/auth", func(r chi.Router) {
+		authHandler.RegisterRoutes(r)
+	})
+	// Protected routes with authentication middleware
+	s.router.Route("/api/v1/auth/me", func(r chi.Router) {
+		r.Use(authMiddleware.Authenticate)
+		r.Get("/me", authHandler.Me)
+	})
 }
 
 func (s *Server) healthCheck(w http.ResponseWriter, r *http.Request) {

@@ -58,21 +58,21 @@
 
 > **Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T013 [P] [US1] Unit test for User registration validation in `backend/tests/unit/auth_service_test.go`
-- [ ] T014 [P] [US1] Unit test for email verification token consumption in `backend/tests/unit/auth_service_test.go`
-- [ ] T015 [US1] Integration test for user registration in `backend/tests/integration/auth_service_test.go`
-- [ ] T016 [US1] Contract test for POST /auth/register endpoint in `backend/tests/contract/auth_handler_test.go`
+- [X] T013 [P] [US1] Unit test for User registration validation in `backend/tests/unit/auth_service_test.go`
+- [X] T014 [P] [US1] Unit test for email verification token consumption in `backend/tests/unit/auth_service_test.go`
+- [X] T015 [US1] Integration test for user registration in `backend/tests/integration/auth_service_test.go`
+- [X] T016 [US1] Contract test for POST /auth/register endpoint in `backend/tests/contract/auth_handler_test.go`
 
 ### Implementation for User Story 1
 
-- [ ] T017 [P] [US1] Implement Register method in `backend/src/service/auth_service.go`
-- [ ] T018 [P] [US1] Implement VerifyEmail method in `backend/src/service/auth_service.go`
-- [ ] T019 [US1] Create auth handler with Register and VerifyEmail endpoints in `backend/src/handler/auth_handler.go`
-- [ ] T020 [US1] Create POST /auth/register endpoint with validation (email format, password strength)
-- [ ] T021 [US1] Create POST /auth/verify-email endpoint with token validation
-- [ ] T022 [US1] Add email verification token generation and storage in auth_tokens table
-- [ ] T023 [US1] Add email sending via adapter for verification emails
-- [ ] T024 [US1] Add validation error handling with user-friendly messages
+- [X] T017 [P] [US1] Implement Register method in `backend/src/service/auth_service.go`
+- [X] T018 [P] [US1] Implement VerifyEmail method in `backend/src/service/auth_service.go`
+- [X] T019 [US1] Create auth handler with Register and VerifyEmail endpoints in `backend/src/handler/auth_handler.go`
+- [X] T020 [US1] Create POST /auth/register endpoint with validation (email format, password strength)
+- [X] T021 [US1] Create POST /auth/verify-email endpoint with token validation
+- [X] T022 [US1] Add email verification token generation and storage in auth_tokens table
+- [X] T023 [US1] Add email sending via adapter for verification emails
+- [X] T024 [US1] Add validation error handling with user-friendly messages
 
 **Checkpoint**: User Story 1 fully functional and testable independently
 
@@ -86,25 +86,25 @@
 
 ### Tests for User Story 2
 
-- [ ] T025 [P] [US2] Unit test for login credential validation in `backend/tests/unit/auth_service_test.go`
+- [X] T025 [P] [US2] Unit test for login credential validation in `backend/tests/unit/auth_service_test.go`
 - [ ] T026 [P] [US2] Unit test for session creation and expiration in `backend/tests/unit/session_service_test.go`
-- [ ] T027 [US2] Integration test for login flow in `backend/tests/integration/auth_service_test.go`
+- [X] T027 [US2] Integration test for login flow in `backend/tests/integration/auth_service_test.go`
 - [ ] T028 [US2] Integration test for session revocation in `backend/tests/integration/session_service_test.go`
-- [ ] T029 [US2] Contract test for POST /auth/login, POST /auth/logout, GET /sessions, DELETE /sessions/{id} endpoints
+- [X] T029 [US2] Contract test for POST /auth/login, POST /auth/logout, GET /sessions, DELETE /sessions/{id} endpoints
 
 ### Implementation for User Story 2
 
-- [ ] T030 [P] [US2] Implement Login method in `backend/src/service/auth_service.go`
+- [X] T030 [P] [US2] Implement Login method in `backend/src/service/auth_service.go`
 - [ ] T031 [P] [US2] Implement Logout method in `backend/src/service/session_service.go`
 - [ ] T032 [US2] Implement ListSessions method in `backend/src/service/session_service.go`
 - [ ] T033 [US2] Implement RevokeSession method in `backend/src/service/session_service.go`
-- [ ] T034 [US2] Create auth middleware in `backend/src/middleware/auth_middleware.go` for session validation
-- [ ] T035 [US2] Create POST /auth/login endpoint with credential validation
-- [ ] T036 [US2] Create POST /auth/logout endpoint
+- [X] T034 [US2] Create auth middleware in `backend/src/middleware/auth_middleware.go` for session validation
+- [X] T035 [US2] Create POST /auth/login endpoint with credential validation
+- [X] T036 [US2] Create POST /auth/logout endpoint
 - [ ] T037 [US2] Create GET /sessions endpoint
 - [ ] T038 [US2] Create DELETE /sessions/{session_id} endpoint
-- [ ] T039 [US2] Add session token hashing (bcrypt) for storage
-- [ ] T040 [US2] Add user agent and IP address capture on login
+- [X] T039 [US2] Add session token hashing (bcrypt) for storage
+- [X] T040 [US2] Add user agent and IP address capture on login
 
 **Checkpoint**: User Story 2 fully functional and testable independently
 
