@@ -43,11 +43,3 @@ type TokenRepository interface {
 	Update(ctx context.Context, token *domain.AuthToken) error
 	DeleteByUserIDAndType(ctx context.Context, userID uuid.UUID, tokenType domain.TokenType) error
 }
-
-// CampaignRepository defines operations on Campaign entities.
-type CampaignRepository interface {
-	Create(ctx context.Context, campaign *domain.Campaign) error
-	ByID(ctx context.Context, id uuid.UUID) (*domain.Campaign, error)
-	ByBrandProfileID(ctx context.Context, brandProfileID uuid.UUID) ([]*domain.Campaign, error)
-	Update(ctx context.Context, campaign *domain.Campaign) error
-}

@@ -65,10 +65,36 @@ func (m *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(r.Context(), SessionContextKey, session)
 		ctx = context.WithValue(ctx, UserContextKey, user)
+		ctx = context.WithValue(ctx, CSRFTokenKey, session.CSRFToken)
 		if session.ActiveProfileID != nil {
 			ctx = context.WithValue(ctx, ActiveProfileIDKey, *session.ActiveProfileID)
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// CSRFTokenKey is the context key for the CSRF token.
+const CSRFTokenKey contextKey = "csrf_token"
+
+// RequireCSRF is a middleware that validates CSRF tokens on state-changing requests.
+func RequireCSRF(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Only check POST, PATCH, DELETE methods
+		method := r.Method
+		if method == "POST" || method == "PATCH" || method == "DELETE" {
+			session := GetSessionFromContext(r.Context())
+			if session == nil {
+				http.Error(w, "Authentication required", http.StatusUnauthorized)
+				return
+			}
+
+			csrfToken := r.Header.Get("X-CSRF-Token")
+			if csrfToken == "" || csrfToken != session.CSRFToken {
+				http.Error(w, "Invalid CSRF token", http.StatusForbidden)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -113,4 +139,12 @@ func GetActiveProfileID(ctx context.Context) *uuid.UUID {
 		return &id
 	}
 	return nil
+}
+
+// GetCSRFTokenFromContext retrieves the CSRF token from the context.
+func GetCSRFTokenFromContext(ctx context.Context) string {
+	if token, ok := ctx.Value(CSRFTokenKey).(string); ok {
+		return token
+	}
+	return ""
 }

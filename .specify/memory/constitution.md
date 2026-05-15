@@ -36,10 +36,18 @@ Implementation must not introduce new modules, technologies, or patterns that ar
 ### Technology Stack
 - Backend: Go
 - Database: PostgreSQL
+- ORM: GORM (no raw SQL in application code)
 - Frontend: Next.js
 - API: REST/JSON
 - Containerization: Docker
 - CI/CD: GitHub Actions
+
+### Data Persistence Rules
+- All database operations MUST use GORM ORM.
+- Raw SQL strings (`s.pool.Exec`, `s.pool.Query`, etc.) are prohibited in application code.
+- Repository interfaces wrap ORM operations; implementations delegate to GORM.
+- Schema management via GORM AutoMigrate; no manual migration files for schema changes.
+- Transaction support through GORM's `Transaction()` method only.
 
 ### Financial Integrity Requirements
 - Immutable audit trail for all financial state transitions.
@@ -56,6 +64,13 @@ Implementation must not introduce new modules, technologies, or patterns that ar
 - Structured logging is mandatory.
 - Configuration must be environment-driven.
 - Backward compatibility must be preserved unless explicitly approved.
+- ORM queries belong in adapter layer; domain layer remains pure.
+
+### Data Access
+- GORM is the sole database access mechanism.
+- Repository pattern abstracts ORM from domain logic.
+- All entity operations go through typed GORM methods.
+- No raw pgx/pgxpool usage in application layer.
 
 ### Testing Requirements
 - Unit tests for domain logic.
@@ -100,6 +115,6 @@ All specifications, plans, tasks, and code must comply with it.
 Any amendment requires explicit documentation and version updates.
 Non-compliant code must be rejected and refactored.
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Ratified**: 2026-05-14
-**Last Amended**: 2026-05-14
+**Last Amended**: 2026-05-15

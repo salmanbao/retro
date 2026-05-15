@@ -120,12 +120,28 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, ipA
 		return nil, domain.ErrInvalidCredentials
 	}
 
+	// Check if account is locked
+	if user.IsLocked() {
+		return nil, domain.ErrAccountLocked
+	}
+
 	if !user.Verified {
 		return nil, domain.ErrEmailNotVerified
 	}
 
 	if !verifyPassword(password, user.PasswordHash) {
+		// Increment failed login attempts (locks account after 5 attempts)
+		user.IncrementFailedAttempts(15 * time.Minute)
+		if err := s.userRepo.Update(ctx, user); err != nil {
+			return nil, fmt.Errorf("failed to update user: %w", err)
+		}
 		return nil, domain.ErrInvalidCredentials
+	}
+
+	// Reset failed login attempts on successful login
+	user.ResetFailedAttempts()
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
 
 	token := generateSecureToken()
@@ -133,6 +149,8 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, ipA
 	expiresAt := time.Now().Add(sessionDuration)
 
 	session := domain.NewSession(user.ID, tokenHash, userAgent, ipAddress, expiresAt)
+	csrfToken := generateSecureToken()
+	session.SetCSRFToken(csrfToken)
 	if err := s.sessionRepo.Create(ctx, session); err != nil {
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}

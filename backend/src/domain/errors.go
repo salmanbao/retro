@@ -13,6 +13,9 @@ var (
 	// ErrInvalidCredentials indicates login credentials are incorrect.
 	ErrInvalidCredentials = errors.New("invalid credentials")
 
+	// ErrAccountLocked indicates the account is locked due to failed login attempts.
+	ErrAccountLocked = errors.New("account is locked due to too many failed login attempts")
+
 	// ErrEmailNotVerified indicates the user has not verified their email.
 	ErrEmailNotVerified = errors.New("email not verified")
 
@@ -51,4 +54,7 @@ var (
 
 	// ErrUnauthorized indicates the user is not authorized for this action.
 	ErrUnauthorized = errors.New("unauthorized")
+
+	// ErrCSRFInvalid indicates the CSRF token is invalid or missing.
+	ErrCSRFInvalid = errors.New("invalid or missing CSRF token")
 )

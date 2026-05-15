@@ -8,8 +8,15 @@
 | email | VARCHAR(255) | UNIQUE, NOT NULL |
 | password_hash | VARCHAR(255) | NOT NULL |
 | verified | BOOLEAN | DEFAULT FALSE |
+| failed_login_attempts | INT | DEFAULT 0 |
+| locked_until | TIMESTAMPTZ | NULLABLE |
 | created_at | TIMESTAMPTZ | NOT NULL |
 | updated_at | TIMESTAMPTZ | NOT NULL |
+
+**Lockout rules**:
+- After 5 consecutive failed login attempts, `locked_until` is set to NOW() + 15 minutes
+- If `locked_until > NOW()`, login attempts are rejected with "account locked" error
+- On successful login, `failed_login_attempts` is reset to 0
 
 ## Entity: Session
 
@@ -19,10 +26,13 @@
 | user_id | UUID | FK → users.id, NOT NULL |
 | active_profile_id | UUID | FK → profiles.id, NULLABLE |
 | token_hash | VARCHAR(255) | UNIQUE, NOT NULL |
+| csrf_token | VARCHAR(255) | NULLABLE |
 | user_agent | VARCHAR(512) | NULLABLE |
 | ip_address | VARCHAR(45) | NULLABLE |
 | expires_at | TIMESTAMPTZ | NOT NULL |
 | created_at | TIMESTAMPTZ | NOT NULL |
+
+**Note**: `csrf_token` stored for validation against `X-CSRF-Token` header on state-changing requests.
 
 ## Entity: Profile
 
@@ -49,6 +59,8 @@
 | used_at | TIMESTAMPTZ | NULLABLE |
 | created_at | TIMESTAMPTZ | NOT NULL |
 
+**Expiry enforcement**: Token is valid only if `expires_at > NOW() AND used_at IS NULL`. Expired or already-used tokens are rejected.
+
 ## Relationships
 
 - User 1:N Session (user has many sessions)
@@ -74,3 +86,4 @@
 - `profiles(user_id)` — list profiles per user
 - `auth_tokens(user_id, token_type)` — token lookup
 - `auth_tokens(token_hash)` — token consumption
+- `auth_tokens(expires_at)` — cleanup expired tokens

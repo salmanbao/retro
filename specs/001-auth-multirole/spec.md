@@ -48,6 +48,16 @@ Excluded from this feature:
 - Social integrations
 - Gamification"
 
+## Clarifications
+
+### Session 2026-05-15
+
+- Q: Should account lockout be implemented to prevent brute force attacks? → A: Lockout after 5 failed attempts, 15-minute cooldown
+- Q: Should session IDs be regenerated after login to prevent session fixation? → A: Regenerate session ID after successful login
+- Q: Should CSRF protection be added for state-changing operations? → A: SameSite=Strict cookies + custom X-CSRF-Token header on state-changing requests
+- Q: Should application-layer rate limiting be added beyond infrastructure? → A: No — rely on account lockout and infrastructure rate limiting
+- Q: Should verification token expiry be stored as a database column? → A: Store expires_at in auth_tokens table, validate on lookup
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - User Registration and Email Verification (Priority: P1)
@@ -181,6 +191,9 @@ A user can view, update, and delete their own profiles. Deleting a profile remov
 - What happens when a user attempts to create more than one profile of the same exact type with identical details? The system allows it (e.g., an Editor may have profiles for different editing specializations).
 - How does the system behave when all sessions are revoked? The user must log in again with their email and password.
 - What happens when a profile is deleted while it is the active profile? The system automatically switches to another profile or prompts profile creation.
+- What happens when a user has 5 failed login attempts? The account is locked for 15 minutes; subsequent login attempts return "account locked" error.
+- What happens when an attacker tries session fixation? The session ID is regenerated after login, invalidating any pre-authentication session ID.
+- What happens when a CSRF attack is attempted? SameSite=Strict prevents cross-site cookies; state-changing requests without valid X-CSRF-Token are rejected.
 
 ## Requirements *(mandatory)*
 
@@ -212,14 +225,17 @@ A user can view, update, and delete their own profiles. Deleting a profile remov
 - **FR-024**: The system MUST validate that passwords meet minimum security requirements.
 - **FR-025**: The system MUST protect against email enumeration in login and password reset flows.
 - **FR-026**: Automated tests MUST cover domain logic, application services, repositories, and API endpoints.
+- **FR-027**: The system MUST implement account lockout after 5 failed login attempts with a 15-minute cooldown.
+- **FR-028**: The system MUST regenerate session ID after successful login to prevent session fixation attacks.
+- **FR-029**: The system MUST enforce CSRF protection via SameSite=Strict cookies and X-CSRF-Token header on state-changing requests.
 
 ### Key Entities *(include if feature involves data)*
 
 - **User Account**: Represents a registered user. Contains email, password hash, verification status, and timestamps. A single account may own multiple profiles.
 - **Session**: Represents an authenticated user connection. Contains session tokens, associated user, device information, creation time, and expiration.
 - **Role Profile**: Represents a user's persona within the marketplace. Contains profile type (Brand, Editor, or Influencer), type-specific details, and timestamps. Multiple profiles may belong to one account.
-- **Password Reset Token**: Represents a time-limited password reset capability. Contains token, associated user, expiration time, and used status.
-- **Email Verification Token**: Represents a time-limited email verification capability. Contains token, associated user, expiration time, and verified status.
+- **Password Reset Token**: Represents a time-limited password reset capability. Contains token, associated user, expiration time (stored in `expires_at` column), and used status. Single-use; consumed when reset link is used.
+- **Email Verification Token**: Represents a time-limited email verification capability. Contains token, associated user, expiration time (stored in `expires_at` column), and verified status. Single-use; consumed when verification link is clicked.
 
 ## Success Criteria *(mandatory)*
 

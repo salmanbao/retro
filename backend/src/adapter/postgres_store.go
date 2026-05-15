@@ -2,44 +2,41 @@ package adapter
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 	"viralforge/backend/src/domain"
 	"viralforge/backend/src/repository"
 )
 
-// PostgresStore implements all repository interfaces using PostgreSQL.
-// Each entity's repository methods are named with entity-specific prefixes to avoid
-// method signature collisions across the four interfaces.
+// PostgresStore implements all repository interfaces using GORM.
 type PostgresStore struct {
-	pool *pgxpool.Pool
+	db *gorm.DB
 }
 
 // NewPostgresStore creates a new PostgreSQL store.
-func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
-	return &PostgresStore{pool: pool}
+func NewPostgresStore(db *gorm.DB) *PostgresStore {
+	return &PostgresStore{db: db}
 }
 
-// Connect returns a new pgxpool connection pool.
-func Connect(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
-	config, err := pgxpool.ParseConfig(databaseURL)
+// Connect creates a new GORM database connection.
+func Connect(ctx context.Context, databaseURL string) (*gorm.DB, error) {
+	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("invalid database URL: %w", err)
+		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
-	pool, err := pgxpool.NewWithConfig(ctx, config)
+	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create connection pool: %w", err)
+		return nil, fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
-	if err := pool.Ping(ctx); err != nil {
+	if err := sqlDB.PingContext(ctx); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
-	return pool, nil
+	return db, nil
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -48,51 +45,38 @@ func Connect(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
 
 // CreateUser persists a new user record.
 func (s *PostgresStore) CreateUser(ctx context.Context, user *domain.User) error {
-	_, err := s.pool.Exec(ctx,
-		`INSERT INTO users (id, email, password_hash, verified, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		user.ID, user.Email, user.PasswordHash, user.Verified, user.CreatedAt, user.UpdatedAt,
-	)
-	return err
+	return s.db.WithContext(ctx).Create(user).Error
 }
 
 // UserByID retrieves a user by ID.
 func (s *PostgresStore) UserByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	row := s.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, verified, created_at, updated_at FROM users WHERE id = $1`,
-		id,
-	)
-	return scanUser(row)
-}
-
-// UserByEmail retrieves a user by email address.
-func (s *PostgresStore) UserByEmail(ctx context.Context, email string) (*domain.User, error) {
-	row := s.pool.QueryRow(ctx,
-		`SELECT id, email, password_hash, verified, created_at, updated_at FROM users WHERE email = $1`,
-		email,
-	)
-	return scanUser(row)
-}
-
-// UpdateUser updates an existing user record.
-func (s *PostgresStore) UpdateUser(ctx context.Context, user *domain.User) error {
-	_, err := s.pool.Exec(ctx,
-		`UPDATE users SET email = $2, password_hash = $3, verified = $4, updated_at = $5 WHERE id = $1`,
-		user.ID, user.Email, user.PasswordHash, user.Verified, user.UpdatedAt,
-	)
-	return err
-}
-
-func scanUser(row pgx.Row) (*domain.User, error) {
-	var u domain.User
-	err := row.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Verified, &u.CreatedAt, &u.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
+	var user domain.User
+	err := s.db.WithContext(ctx).Where("id = ?", id).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, domain.ErrUserNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &u, nil
+	return &user, nil
+}
+
+// UserByEmail retrieves a user by email address.
+func (s *PostgresStore) UserByEmail(ctx context.Context, email string) (*domain.User, error) {
+	var user domain.User
+	err := s.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// UpdateUser updates an existing user record.
+func (s *PostgresStore) UpdateUser(ctx context.Context, user *domain.User) error {
+	return s.db.WithContext(ctx).Save(user).Error
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -101,100 +85,61 @@ func scanUser(row pgx.Row) (*domain.User, error) {
 
 // CreateSession persists a new session record.
 func (s *PostgresStore) CreateSession(ctx context.Context, session *domain.Session) error {
-	_, err := s.pool.Exec(ctx,
-		`INSERT INTO sessions (id, user_id, active_profile_id, token_hash, user_agent, ip_address, expires_at, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		session.ID, session.UserID, session.ActiveProfileID, session.TokenHash,
-		session.UserAgent, session.IPAddress, session.ExpiresAt, session.CreatedAt,
-	)
-	return err
+	return s.db.WithContext(ctx).Create(session).Error
 }
 
 // SessionByID retrieves a session by ID.
 func (s *PostgresStore) SessionByID(ctx context.Context, id uuid.UUID) (*domain.Session, error) {
-	row := s.pool.QueryRow(ctx,
-		`SELECT id, user_id, active_profile_id, token_hash, user_agent, ip_address, expires_at, created_at
-		 FROM sessions WHERE id = $1`,
-		id,
-	)
-	return scanSession(row)
-}
-
-// SessionByTokenHash retrieves a session by its token hash.
-func (s *PostgresStore) SessionByTokenHash(ctx context.Context, tokenHash string) (*domain.Session, error) {
-	row := s.pool.QueryRow(ctx,
-		`SELECT id, user_id, active_profile_id, token_hash, user_agent, ip_address, expires_at, created_at
-		 FROM sessions WHERE token_hash = $1`,
-		tokenHash,
-	)
-	return scanSession(row)
-}
-
-// SessionsByUserID retrieves all sessions for a user.
-func (s *PostgresStore) SessionsByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Session, error) {
-	rows, err := s.pool.Query(ctx,
-		`SELECT id, user_id, active_profile_id, token_hash, user_agent, ip_address, expires_at, created_at
-		 FROM sessions WHERE user_id = $1 ORDER BY created_at DESC`,
-		userID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var sessions []*domain.Session
-	for rows.Next() {
-		session, err := scanSessionRows(rows)
-		if err != nil {
-			return nil, err
-		}
-		sessions = append(sessions, session)
-	}
-	return sessions, rows.Err()
-}
-
-// UpdateSession updates an existing session record.
-func (s *PostgresStore) UpdateSession(ctx context.Context, session *domain.Session) error {
-	_, err := s.pool.Exec(ctx,
-		`UPDATE sessions SET active_profile_id = $2, token_hash = $3, user_agent = $4, ip_address = $5, expires_at = $6 WHERE id = $1`,
-		session.ID, session.ActiveProfileID, session.TokenHash, session.UserAgent, session.IPAddress, session.ExpiresAt,
-	)
-	return err
-}
-
-// DeleteSession removes a session by ID.
-func (s *PostgresStore) DeleteSession(ctx context.Context, id uuid.UUID) error {
-	_, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE id = $1`, id)
-	return err
-}
-
-// DeleteSessionsByUserID removes all sessions for a user.
-func (s *PostgresStore) DeleteSessionsByUserID(ctx context.Context, userID uuid.UUID) error {
-	_, err := s.pool.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, userID)
-	return err
-}
-
-func scanSession(row pgx.Row) (*domain.Session, error) {
-	var sess domain.Session
-	err := row.Scan(&sess.ID, &sess.UserID, &sess.ActiveProfileID, &sess.TokenHash,
-		&sess.UserAgent, &sess.IPAddress, &sess.ExpiresAt, &sess.CreatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
+	var session domain.Session
+	err := s.db.WithContext(ctx).Where("id = ?", id).First(&session).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, domain.ErrSessionNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &sess, nil
+	return &session, nil
 }
 
-func scanSessionRows(rows pgx.Rows) (*domain.Session, error) {
-	var sess domain.Session
-	err := rows.Scan(&sess.ID, &sess.UserID, &sess.ActiveProfileID, &sess.TokenHash,
-		&sess.UserAgent, &sess.IPAddress, &sess.ExpiresAt, &sess.CreatedAt)
+// SessionByTokenHash retrieves a session by its token hash.
+func (s *PostgresStore) SessionByTokenHash(ctx context.Context, tokenHash string) (*domain.Session, error) {
+	var session domain.Session
+	err := s.db.WithContext(ctx).Where("token_hash = ?", tokenHash).First(&session).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrSessionNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
-	return &sess, nil
+	return &session, nil
+}
+
+// SessionsByUserID retrieves all sessions for a user.
+func (s *PostgresStore) SessionsByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Session, error) {
+	var sessions []*domain.Session
+	err := s.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Find(&sessions).Error
+	if err != nil {
+		return nil, err
+	}
+	return sessions, nil
+}
+
+// UpdateSession updates an existing session record.
+func (s *PostgresStore) UpdateSession(ctx context.Context, session *domain.Session) error {
+	return s.db.WithContext(ctx).Save(session).Error
+}
+
+// DeleteSession removes a session by ID.
+func (s *PostgresStore) DeleteSession(ctx context.Context, id uuid.UUID) error {
+	return s.db.WithContext(ctx).Delete(&domain.Session{}, "id = ?", id).Error
+}
+
+// DeleteSessionsByUserID removes all sessions for a user.
+func (s *PostgresStore) DeleteSessionsByUserID(ctx context.Context, userID uuid.UUID) error {
+	return s.db.WithContext(ctx).Delete(&domain.Session{}, "user_id = ?", userID).Error
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -203,89 +148,47 @@ func scanSessionRows(rows pgx.Rows) (*domain.Session, error) {
 
 // CreateProfile persists a new profile record.
 func (s *PostgresStore) CreateProfile(ctx context.Context, profile *domain.Profile) error {
-	_, err := s.pool.Exec(ctx,
-		`INSERT INTO profiles (id, user_id, profile_type, name, details, created_at, updated_at, deleted_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		profile.ID, profile.UserID, profile.Type, profile.Name, profile.Details,
-		profile.CreatedAt, profile.UpdatedAt, profile.DeletedAt,
-	)
-	return err
+	return s.db.WithContext(ctx).Create(profile).Error
 }
 
 // ProfileByID retrieves a profile by ID (excludes soft-deleted).
 func (s *PostgresStore) ProfileByID(ctx context.Context, id uuid.UUID) (*domain.Profile, error) {
-	row := s.pool.QueryRow(ctx,
-		`SELECT id, user_id, profile_type, name, details, created_at, updated_at, deleted_at
-		 FROM profiles WHERE id = $1 AND deleted_at IS NULL`,
-		id,
-	)
-	return scanProfile(row)
-}
-
-// ProfilesByUserID retrieves all non-deleted profiles for a user.
-func (s *PostgresStore) ProfilesByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Profile, error) {
-	rows, err := s.pool.Query(ctx,
-		`SELECT id, user_id, profile_type, name, details, created_at, updated_at, deleted_at
-		 FROM profiles WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at`,
-		userID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var profiles []*domain.Profile
-	for rows.Next() {
-		profile, err := scanProfileRows(rows)
-		if err != nil {
-			return nil, err
-		}
-		profiles = append(profiles, profile)
-	}
-	return profiles, rows.Err()
-}
-
-// UpdateProfile updates an existing profile record.
-func (s *PostgresStore) UpdateProfile(ctx context.Context, profile *domain.Profile) error {
-	_, err := s.pool.Exec(ctx,
-		`UPDATE profiles SET name = $2, details = $3, updated_at = $4 WHERE id = $1`,
-		profile.ID, profile.Name, profile.Details, profile.UpdatedAt,
-	)
-	return err
-}
-
-// DeleteProfile soft-deletes a profile by ID.
-func (s *PostgresStore) DeleteProfile(ctx context.Context, id uuid.UUID) error {
-	_, err := s.pool.Exec(ctx,
-		`UPDATE profiles SET deleted_at = $2 WHERE id = $1`,
-		id, time.Now(),
-	)
-	return err
-}
-
-func scanProfile(row pgx.Row) (*domain.Profile, error) {
-	var p domain.Profile
-	var details []byte
-	err := row.Scan(&p.ID, &p.UserID, &p.Type, &p.Name, &details, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
+	var profile domain.Profile
+	err := s.db.WithContext(ctx).
+		Where("id = ? AND deleted_at IS NULL", id).
+		First(&profile).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, domain.ErrProfileNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	p.Details = json.RawMessage(details)
-	return &p, nil
+	return &profile, nil
 }
 
-func scanProfileRows(rows pgx.Rows) (*domain.Profile, error) {
-	var p domain.Profile
-	var details []byte
-	err := rows.Scan(&p.ID, &p.UserID, &p.Type, &p.Name, &details, &p.CreatedAt, &p.UpdatedAt, &p.DeletedAt)
+// ProfilesByUserID retrieves all non-deleted profiles for a user.
+func (s *PostgresStore) ProfilesByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Profile, error) {
+	var profiles []*domain.Profile
+	err := s.db.WithContext(ctx).
+		Where("user_id = ? AND deleted_at IS NULL", userID).
+		Order("created_at ASC").
+		Find(&profiles).Error
 	if err != nil {
 		return nil, err
 	}
-	p.Details = json.RawMessage(details)
-	return &p, nil
+	return profiles, nil
+}
+
+// UpdateProfile updates an existing profile record.
+func (s *PostgresStore) UpdateProfile(ctx context.Context, profile *domain.Profile) error {
+	return s.db.WithContext(ctx).Save(profile).Error
+}
+
+// DeleteProfile soft-deletes a profile by ID.
+func (s *PostgresStore) DeleteProfile(ctx context.Context, id uuid.UUID) error {
+	return s.db.WithContext(ctx).Model(&domain.Profile{}).
+		Where("id = ?", id).
+		Update("deleted_at", time.Now()).Error
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -294,149 +197,47 @@ func scanProfileRows(rows pgx.Rows) (*domain.Profile, error) {
 
 // CreateToken persists a new auth token record.
 func (s *PostgresStore) CreateToken(ctx context.Context, token *domain.AuthToken) error {
-	_, err := s.pool.Exec(ctx,
-		`INSERT INTO auth_tokens (id, user_id, token_type, token_hash, expires_at, used_at, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		token.ID, token.UserID, token.TokenType, token.TokenHash, token.ExpiresAt, token.UsedAt, token.CreatedAt,
-	)
-	return err
+	return s.db.WithContext(ctx).Create(token).Error
 }
 
 // TokenByTokenHash retrieves a token by its hash.
 func (s *PostgresStore) TokenByTokenHash(ctx context.Context, tokenHash string) (*domain.AuthToken, error) {
-	row := s.pool.QueryRow(ctx,
-		`SELECT id, user_id, token_type, token_hash, expires_at, used_at, created_at
-		 FROM auth_tokens WHERE token_hash = $1`,
-		tokenHash,
-	)
-	return scanToken(row)
-}
-
-// TokenByUserIDAndType retrieves the most recent unused token of a given type for a user.
-func (s *PostgresStore) TokenByUserIDAndType(ctx context.Context, userID uuid.UUID, tokenType domain.TokenType) (*domain.AuthToken, error) {
-	row := s.pool.QueryRow(ctx,
-		`SELECT id, user_id, token_type, token_hash, expires_at, used_at, created_at
-		 FROM auth_tokens WHERE user_id = $1 AND token_type = $2 AND used_at IS NULL AND expires_at > NOW()
-		 ORDER BY created_at DESC LIMIT 1`,
-		userID, tokenType,
-	)
-	return scanToken(row)
-}
-
-// UpdateToken marks a token as used.
-func (s *PostgresStore) UpdateToken(ctx context.Context, token *domain.AuthToken) error {
-	_, err := s.pool.Exec(ctx,
-		`UPDATE auth_tokens SET used_at = $2 WHERE id = $1`,
-		token.ID, token.UsedAt,
-	)
-	return err
-}
-
-// DeleteTokensByUserIDAndType removes all tokens of a given type for a user.
-func (s *PostgresStore) DeleteTokensByUserIDAndType(ctx context.Context, userID uuid.UUID, tokenType domain.TokenType) error {
-	_, err := s.pool.Exec(ctx,
-		`DELETE FROM auth_tokens WHERE user_id = $1 AND token_type = $2`,
-		userID, tokenType,
-	)
-	return err
-}
-
-func scanToken(row pgx.Row) (*domain.AuthToken, error) {
-	var t domain.AuthToken
-	err := row.Scan(&t.ID, &t.UserID, &t.TokenType, &t.TokenHash, &t.ExpiresAt, &t.UsedAt, &t.CreatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
+	var token domain.AuthToken
+	err := s.db.WithContext(ctx).Where("token_hash = ?", tokenHash).First(&token).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, domain.ErrTokenNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &t, nil
+	return &token, nil
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Campaign repository methods
-// ─────────────────────────────────────────────────────────────────────────────
-
-// CreateCampaign persists a new campaign record.
-func (s *PostgresStore) CreateCampaign(ctx context.Context, campaign *domain.Campaign) error {
-	_, err := s.pool.Exec(ctx,
-		`INSERT INTO campaigns (id, brand_profile_id, title, description, raw_content_url, budget_total, editor_budget, influencer_budget, target_platforms, status, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-		campaign.ID, campaign.BrandProfileID, campaign.Title, campaign.Description,
-		campaign.RawContentURL, campaign.BudgetTotal, campaign.EditorBudget,
-		campaign.InfluencerBudget, campaign.TargetPlatforms, campaign.Status,
-		campaign.CreatedAt, campaign.UpdatedAt,
-	)
-	return err
-}
-
-// CampaignByID retrieves a campaign by ID.
-func (s *PostgresStore) CampaignByID(ctx context.Context, id uuid.UUID) (*domain.Campaign, error) {
-	row := s.pool.QueryRow(ctx,
-		`SELECT id, brand_profile_id, title, description, raw_content_url, budget_total, editor_budget, influencer_budget, target_platforms, status, created_at, updated_at
-		 FROM campaigns WHERE id = $1`,
-		id,
-	)
-	return scanCampaign(row)
-}
-
-// CampaignsByBrandProfileID retrieves all campaigns for a brand profile.
-func (s *PostgresStore) CampaignsByBrandProfileID(ctx context.Context, brandProfileID uuid.UUID) ([]*domain.Campaign, error) {
-	rows, err := s.pool.Query(ctx,
-		`SELECT id, brand_profile_id, title, description, raw_content_url, budget_total, editor_budget, influencer_budget, target_platforms, status, created_at, updated_at
-		 FROM campaigns WHERE brand_profile_id = $1 ORDER BY created_at DESC`,
-		brandProfileID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var campaigns []*domain.Campaign
-	for rows.Next() {
-		campaign, err := scanCampaignRows(rows)
-		if err != nil {
-			return nil, err
-		}
-		campaigns = append(campaigns, campaign)
-	}
-	return campaigns, rows.Err()
-}
-
-// UpdateCampaign updates an existing campaign record.
-func (s *PostgresStore) UpdateCampaign(ctx context.Context, campaign *domain.Campaign) error {
-	_, err := s.pool.Exec(ctx,
-		`UPDATE campaigns SET title = $2, description = $3, raw_content_url = $4, budget_total = $5, editor_budget = $6, influencer_budget = $7, target_platforms = $8, status = $9, updated_at = $10 WHERE id = $1`,
-		campaign.ID, campaign.Title, campaign.Description, campaign.RawContentURL,
-		campaign.BudgetTotal, campaign.EditorBudget, campaign.InfluencerBudget,
-		campaign.TargetPlatforms, campaign.Status, campaign.UpdatedAt,
-	)
-	return err
-}
-
-func scanCampaign(row pgx.Row) (*domain.Campaign, error) {
-	var c domain.Campaign
-	err := row.Scan(&c.ID, &c.BrandProfileID, &c.Title, &c.Description,
-		&c.RawContentURL, &c.BudgetTotal, &c.EditorBudget, &c.InfluencerBudget,
-		&c.TargetPlatforms, &c.Status, &c.CreatedAt, &c.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, domain.ErrCampaignNotFound
+// TokenByUserIDAndType retrieves the most recent unused token of a given type for a user.
+func (s *PostgresStore) TokenByUserIDAndType(ctx context.Context, userID uuid.UUID, tokenType domain.TokenType) (*domain.AuthToken, error) {
+	var token domain.AuthToken
+	err := s.db.WithContext(ctx).
+		Where("user_id = ? AND token_type = ? AND used_at IS NULL AND expires_at > ?", userID, tokenType, time.Now()).
+		Order("created_at DESC").
+		First(&token).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrTokenNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &c, nil
+	return &token, nil
 }
 
-func scanCampaignRows(rows pgx.Rows) (*domain.Campaign, error) {
-	var c domain.Campaign
-	err := rows.Scan(&c.ID, &c.BrandProfileID, &c.Title, &c.Description,
-		&c.RawContentURL, &c.BudgetTotal, &c.EditorBudget, &c.InfluencerBudget,
-		&c.TargetPlatforms, &c.Status, &c.CreatedAt, &c.UpdatedAt)
-	if err != nil {
-		return nil, err
-	}
-	return &c, nil
+// UpdateToken marks a token as used.
+func (s *PostgresStore) UpdateToken(ctx context.Context, token *domain.AuthToken) error {
+	return s.db.WithContext(ctx).Save(token).Error
+}
+
+// DeleteTokensByUserIDAndType removes all tokens of a given type for a user.
+func (s *PostgresStore) DeleteTokensByUserIDAndType(ctx context.Context, userID uuid.UUID, tokenType domain.TokenType) error {
+	return s.db.WithContext(ctx).
+		Delete(&domain.AuthToken{}, "user_id = ? AND token_type = ?", userID, tokenType).Error
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -522,29 +323,12 @@ func (r *tokenRepo) DeleteByUserIDAndType(ctx context.Context, uid uuid.UUID, tt
 	return r.DeleteTokensByUserIDAndType(ctx, uid, tt)
 }
 
-// campaignRepo adapts PostgresStore to satisfy repository.CampaignRepository.
-type campaignRepo struct{ *PostgresStore }
-
-func (r *campaignRepo) Create(ctx context.Context, campaign *domain.Campaign) error {
-	return r.CreateCampaign(ctx, campaign)
-}
-func (r *campaignRepo) ByID(ctx context.Context, id uuid.UUID) (*domain.Campaign, error) {
-	return r.CampaignByID(ctx, id)
-}
-func (r *campaignRepo) ByBrandProfileID(ctx context.Context, brandProfileID uuid.UUID) ([]*domain.Campaign, error) {
-	return r.CampaignsByBrandProfileID(ctx, brandProfileID)
-}
-func (r *campaignRepo) Update(ctx context.Context, campaign *domain.Campaign) error {
-	return r.UpdateCampaign(ctx, campaign)
-}
-
 // Compile-time interface checks.
 var (
-	_ repository.UserRepository     = (*userRepo)(nil)
-	_ repository.SessionRepository  = (*sessionRepo)(nil)
-	_ repository.ProfileRepository  = (*profileRepo)(nil)
-	_ repository.TokenRepository    = (*tokenRepo)(nil)
-	_ repository.CampaignRepository = (*campaignRepo)(nil)
+	_ repository.UserRepository   = (*userRepo)(nil)
+	_ repository.SessionRepository = (*sessionRepo)(nil)
+	_ repository.ProfileRepository = (*profileRepo)(nil)
+	_ repository.TokenRepository   = (*tokenRepo)(nil)
 )
 
 // UserRepository returns a repository.UserRepository backed by PostgresStore.
@@ -559,5 +343,21 @@ func (s *PostgresStore) ProfileRepository() repository.ProfileRepository { retur
 // TokenRepository returns a repository.TokenRepository backed by PostgresStore.
 func (s *PostgresStore) TokenRepository() repository.TokenRepository { return &tokenRepo{s} }
 
-// CampaignRepository returns a repository.CampaignRepository backed by PostgresStore.
-func (s *PostgresStore) CampaignRepository() repository.CampaignRepository { return &campaignRepo{s} }
+// DB returns the underlying GORM DB instance for advanced operations.
+func (s *PostgresStore) DB() *gorm.DB {
+	return s.db
+}
+
+// AutoMigrate runs GORM automigration for all domain models.
+func (s *PostgresStore) AutoMigrate() error {
+	return s.db.AutoMigrate(&domain.User{}, &domain.Session{}, &domain.Profile{}, &domain.AuthToken{})
+}
+
+// Transaction executes a function within a database transaction.
+func (s *PostgresStore) Transaction(ctx context.Context, fn func(repo repository.UserRepository) error) error {
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Create a new PostgresStore with the transaction
+		txStore := &PostgresStore{db: tx}
+		return fn(txStore.UserRepository())
+	})
+}

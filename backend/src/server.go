@@ -16,11 +16,11 @@ import (
 const timeout = 30 * time.Second
 
 // NewServer creates and configures the HTTP server.
-func NewServer(cfg *Config, store *adapter.PostgresStore, email adapter.EmailService) *Server {
+func NewServer(cfg *Config, db *adapter.PostgresStore, email adapter.EmailService) *Server {
 	return &Server{
-		cfg:    cfg,
-		store:  store,
-		email:  email,
+		cfg:   cfg,
+		store: db,
+		email: email,
 		router: chi.NewMux(),
 	}
 }
@@ -41,6 +41,9 @@ func (s *Server) Setup() {
 	s.router.Use(chiMiddleware.Recoverer)
 	s.router.Use(chiMiddleware.Timeout(timeout))
 
+	// Auto-migrate domain models
+	_ = s.store.AutoMigrate()
+
 	s.router.Get("/health", s.healthCheck)
 
 	authSvc := service.NewAuthService(
@@ -51,19 +54,13 @@ func (s *Server) Setup() {
 		s.cfg.BaseURL,
 	)
 	authHandler := handler.NewAuthHandler(authSvc)
-	authMiddleware := authMiddleware.NewAuthMiddleware(s.store.SessionRepository(), s.store.UserRepository())
+	authMw := authMiddleware.NewAuthMiddleware(s.store.SessionRepository(), s.store.UserRepository())
 
 	profileSvc := service.NewProfileService(
 		s.store.ProfileRepository(),
 		s.store.UserRepository(),
 	)
 	profileHandler := handler.NewProfileHandler(profileSvc)
-
-	campaignSvc := service.NewCampaignService(
-		s.store.CampaignRepository(),
-		s.store.ProfileRepository(),
-	)
-	campaignHandler := handler.NewCampaignHandler(campaignSvc)
 
 	sessionSvc := service.NewSessionService(
 		s.store.SessionRepository(),
@@ -76,29 +73,19 @@ func (s *Server) Setup() {
 	})
 	// Protected auth routes
 	s.router.Route("/api/v1/auth/me", func(r chi.Router) {
-		r.Use(authMiddleware.Authenticate)
+		r.Use(authMw.Authenticate)
 		r.Get("/me", authHandler.Me)
 	})
 	// Protected profile routes
 	s.router.Route("/api/v1/profiles", func(r chi.Router) {
-		r.Use(authMiddleware.Authenticate)
+		r.Use(authMw.Authenticate)
 		profileHandler.RegisterRoutes(r)
-	})
-	// Protected campaign routes
-	s.router.Route("/api/v1/campaigns", func(r chi.Router) {
-		r.Use(authMiddleware.Authenticate)
-		campaignHandler.RegisterRoutes(r)
 	})
 	// Protected session routes
 	s.router.Route("/api/v1/sessions", func(r chi.Router) {
-		r.Use(authMiddleware.Authenticate)
+		r.Use(authMw.Authenticate)
 		r.Patch("/active", sessionHandler.SwitchActiveProfile)
 		sessionHandler.RegisterRoutes(r)
-	})
-	// Protected profile routes
-	s.router.Route("/api/v1/profiles", func(r chi.Router) {
-		r.Use(authMiddleware.Authenticate)
-		profileHandler.RegisterRoutes(r)
 	})
 }
 

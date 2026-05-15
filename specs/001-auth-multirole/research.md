@@ -22,7 +22,9 @@
 auth_tokens(uuid, user_id, token_type, expires_at, used_at, created_at)
 ```
 
-**Rationale**: Unified table for all one-time tokens. Index on (user_id, token_type) for lookup. `used_at` set on consumption to prevent reuse.
+**Rationale**: Unified table for all one-time tokens. Index on (user_id, token_type) for lookup. `expires_at` stored in DB and validated on lookup (per clarification). `used_at` set on consumption to prevent reuse.
+
+**Update (2026-05-15)**: `expires_at` column now validated in SQL query, not business logic alone — ensures consistency even if app crashes before business logic check.
 
 ## Active Profile in Session
 
@@ -34,7 +36,43 @@ auth_tokens(uuid, user_id, token_type, expires_at, used_at, created_at)
 
 **Decision**: bcrypt with cost factor 12.
 
-**Rationale**: Industry standard, widely deployed, cost factor 12 meets SC-011 (minimum 12 rounds). Go's `golang.org/x/crypto/bcrypt` is the standard library.
+**Rationale**: Industry standard, widely deployed, cost factor 12 meets OWASP recommendation and SC-011. Go's `golang.org/x/crypto/bcrypt` is the standard library.
+
+## Account Lockout
+
+**Decision**: 5 failed login attempts → 15-minute lockout, stored in `users` table.
+
+```sql
+users(failed_login_attempts INT, locked_until TIMESTAMP)
+```
+
+**Rationale**: Balances brute-force protection against denial-of-service. 15-minute window auto-resets without admin intervention. Prevents rapid-fire attacks while allowing legitimate users to retry after cooldown.
+
+**Alternatives considered**:
+- Infinite lockout: rejected — too easy to DOS any account
+- No lockout: rejected — vulnerable to brute force
+- Exponential backoff: more complex, 15-min is simpler
+
+## Session Regeneration
+
+**Decision**: Generate new UUID session ID on successful login, invalidate old.
+
+**Rationale**: Prevents session fixation attacks (OWASP recommendation). Attacker cannot pre-set session ID since new ID is generated server-side after authentication.
+
+## CSRF Protection
+
+**Decision**: SameSite=Strict cookies + X-CSRF-Token header validation on state-changing requests.
+
+**Implementation**:
+- Cookie: `SameSite=Strict; HttpOnly; Secure`
+- Header: `X-CSRF-Token` required on POST/PATCH/DELETE
+- Token generated on login and profile switch
+
+**Rationale**: Chi/Go has no built-in CSRF. SameSite=Strict alone blocks most CSRF, but header validation provides defense-in-depth for browser-compatible clients.
+
+**Alternatives considered**:
+- Double-submit cookie: more complex, SameSite+header is sufficient
+- CSRF middleware library: adds dependency; custom is simpler
 
 ## Email Adapter Pattern
 
@@ -50,6 +88,20 @@ auth_tokens(uuid, user_id, token_type, expires_at, used_at, created_at)
 
 ## Email Verification Links
 
-**Decision**: UUID tokens, never expire in the database until used — separate expiration tracked in business logic (24h per spec assumption).
+**Decision**: UUID tokens stored with `expires_at` column. Single-use: `used_at` set on consumption.
 
-**Rationale**: Simpler than JWT for verification links. Tokens are single-use: `used_at` set on consumption.
+**Rationale**: Verification links expire based on DB `expires_at` value, not in-memory timestamp. 24-hour window per spec assumption.
+
+**Update (2026-05-15)**: Expiry now enforced at DB level via `expires_at > NOW()` check — consistent even if app crashes.
+
+## Password Reset Flow
+
+**Decision**: UUID reset tokens stored with `expires_at` column. All existing sessions invalidated on successful reset.
+
+**Rationale**: Single-use tokens with 1-hour expiry (per spec assumption). Session invalidation prevents attacker maintaining access after legitimate password change.
+
+## Session Timeout
+
+**Decision**: 24-hour inactivity timeout per spec assumption.
+
+**Rationale**: Reasonable balance between security and UX. Sessions expire automatically if user is inactive.

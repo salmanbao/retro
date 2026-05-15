@@ -218,6 +218,26 @@
 
 ---
 
+## Phase 8.5: Security Enhancements (from Clarification)
+
+**Purpose**: Implement security features added during spec clarification
+
+### Tests for Security Enhancements
+
+- [X] T093 [P] Unit test for account lockout after failed login attempts in `backend/tests/unit/auth_service_test.go`
+- [X] T094 [P] Unit test for session regeneration on login in `backend/tests/unit/session_service_test.go`
+- [X] T095 [P] Unit test for CSRF token validation in `backend/tests/unit/auth_middleware_test.go`
+
+### Implementation for Security Enhancements
+
+- [X] T096 [P] Add account lockout: `failed_login_attempts` and `locked_until` fields to User entity and login flow
+- [X] T097 [P] Implement session ID regeneration on successful login to prevent session fixation
+- [X] T098 [P] Implement CSRF protection middleware: SameSite=Strict cookies + X-CSRF-Token header validation
+
+**Checkpoint**: Security enhancements implemented per FR-027, FR-028, FR-029
+
+---
+
 ## Phase 9: Polish & Cross-Cutting Concerns
 
 **Purpose**: Improvements that affect multiple user stories
@@ -242,6 +262,7 @@
 - **User Stories (Phase 3+)**: All depend on Foundational phase completion
   - User stories can proceed in parallel (if staffed)
   - Or sequentially in priority order (P1 → P2 → P3)
+- **Security Enhancements (Phase 8.5)**: Depends on User Story 2 (needs login flow to add lockout/regeneration)
 - **Polish (Phase 9)**: Depends on all desired user stories being complete
 
 ### User Story Dependencies
@@ -332,8 +353,9 @@ With multiple developers:
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
-- Total tasks: 92
+- Total tasks: 98
 - User Stories 1-3 (P1): 39 tasks (core auth — MVP scope)
 - User Stories 4-6 (P2/P3): 35 tasks (profile management)
 - Setup + Foundational: 18 tasks
+- Security enhancements: 6 tasks (account lockout, session regeneration, CSRF)
 - Polish: 8 tasks
