@@ -1,6 +1,7 @@
 # Node
 node_modules/
 viralForge/
+backend/graphify-out/
 # Go
 *.exe
 *.test
