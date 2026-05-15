@@ -57,4 +57,31 @@ var (
 
 	// ErrCSRFInvalid indicates the CSRF token is invalid or missing.
 	ErrCSRFInvalid = errors.New("invalid or missing CSRF token")
+
+	// ErrPermissionDenied indicates the caller does not have the required permission.
+	ErrPermissionDenied = errors.New("permission denied")
+
+	// ErrRoleNotFound indicates no role matches the provided identifier.
+	ErrRoleNotFound = errors.New("role not found")
+
+	// ErrPermissionNotFound indicates no permission matches the provided key.
+	ErrPermissionNotFound = errors.New("permission not found")
+
+	// ErrCircularInheritance indicates assigning this parent would create a cycle.
+	ErrCircularInheritance = errors.New("circular role inheritance detected")
+
+	// ErrMaxRolesExceeded indicates the profile has reached max role assignment.
+	ErrMaxRolesExceeded = errors.New("maximum roles per profile exceeded")
+
+	// ErrRoleAlreadyAssigned indicates this role is already assigned to the profile.
+	ErrRoleAlreadyAssigned = errors.New("role already assigned to profile")
+
+	// ErrRoleNotAssigned indicates this role is not assigned to the profile.
+	ErrRoleNotAssigned = errors.New("role not assigned to profile")
+
+	// ErrRoleHierarchyDepthExceeded indicates the parent role depth would exceed limit.
+	ErrRoleHierarchyDepthExceeded = errors.New("role hierarchy depth exceeds maximum of 3")
+
+	// ErrWildcardNotSupported indicates wildcard permissions are not yet supported.
+	ErrWildcardNotSupported = errors.New("wildcard permissions not yet implemented")
 )

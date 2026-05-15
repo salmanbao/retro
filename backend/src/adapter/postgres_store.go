@@ -410,6 +410,122 @@ func (r *twoFactorSettingsRepo) Update(ctx context.Context, settings *domain.Two
 	return r.UpdateTwoFactorSettings(ctx, settings)
 }
 
+// permissionRepo adapts PostgresStore to satisfy repository.PermissionRepository.
+type permissionRepo struct{ *PostgresStore }
+
+func (r *permissionRepo) Create(ctx context.Context, permission *domain.Permission) error {
+	return r.DB().Create(permission).Error
+}
+func (r *permissionRepo) ByKey(ctx context.Context, key string) (*domain.Permission, error) {
+	var p domain.Permission
+	if err := r.DB().Where("key = ?", key).First(&p).Error; err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+func (r *permissionRepo) ListAll(ctx context.Context) ([]*domain.Permission, error) {
+	var perms []*domain.Permission
+	if err := r.DB().Find(&perms).Error; err != nil {
+		return nil, err
+	}
+	return perms, nil
+}
+
+// roleRepo adapts PostgresStore to satisfy repository.RoleRepository.
+type roleRepo struct{ *PostgresStore }
+
+func (r *roleRepo) Create(ctx context.Context, role *domain.Role) error {
+	return r.DB().Create(role).Error
+}
+func (r *roleRepo) ByID(ctx context.Context, id uuid.UUID) (*domain.Role, error) {
+	var role domain.Role
+	if err := r.DB().Where("id = ?", id).First(&role).Error; err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+func (r *roleRepo) ByName(ctx context.Context, name string) (*domain.Role, error) {
+	var role domain.Role
+	if err := r.DB().Where("name = ?", name).First(&role).Error; err != nil {
+		return nil, err
+	}
+	return &role, nil
+}
+func (r *roleRepo) ListAll(ctx context.Context) ([]*domain.Role, error) {
+	var roles []*domain.Role
+	if err := r.DB().Find(&roles).Error; err != nil {
+		return nil, err
+	}
+	return roles, nil
+}
+func (r *roleRepo) Update(ctx context.Context, role *domain.Role) error {
+	return r.DB().Save(role).Error
+}
+func (r *roleRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return r.DB().Delete(&domain.Role{}, "id = ?", id).Error
+}
+
+// rolePermissionRepo adapts PostgresStore to satisfy repository.RolePermissionRepository.
+type rolePermissionRepo struct{ *PostgresStore }
+
+func (r *rolePermissionRepo) Create(ctx context.Context, rp *domain.RolePermission) error {
+	return r.DB().Create(rp).Error
+}
+func (r *rolePermissionRepo) ByRoleID(ctx context.Context, roleID uuid.UUID) ([]*domain.RolePermission, error) {
+	var rps []*domain.RolePermission
+	if err := r.DB().Where("role_id = ?", roleID).Find(&rps).Error; err != nil {
+		return nil, err
+	}
+	return rps, nil
+}
+func (r *rolePermissionRepo) ByPermissionKey(ctx context.Context, permissionKey string) ([]*domain.RolePermission, error) {
+	var rps []*domain.RolePermission
+	if err := r.DB().Where("permission_key = ?", permissionKey).Find(&rps).Error; err != nil {
+		return nil, err
+	}
+	return rps, nil
+}
+func (r *rolePermissionRepo) Delete(ctx context.Context, roleID uuid.UUID, permissionKey string) error {
+	return r.DB().Delete(&domain.RolePermission{}, "role_id = ? AND permission_key = ?", roleID, permissionKey).Error
+}
+func (r *rolePermissionRepo) DeleteByRoleID(ctx context.Context, roleID uuid.UUID) error {
+	return r.DB().Delete(&domain.RolePermission{}, "role_id = ?", roleID).Error
+}
+
+// profileRoleRepo adapts PostgresStore to satisfy repository.ProfileRoleRepository.
+type profileRoleRepo struct{ *PostgresStore }
+
+func (r *profileRoleRepo) Create(ctx context.Context, pr *domain.ProfileRole) error {
+	return r.DB().Create(pr).Error
+}
+func (r *profileRoleRepo) ByProfileID(ctx context.Context, profileID uuid.UUID) ([]*domain.ProfileRole, error) {
+	var prs []*domain.ProfileRole
+	if err := r.DB().Where("profile_id = ?", profileID).Find(&prs).Error; err != nil {
+		return nil, err
+	}
+	return prs, nil
+}
+func (r *profileRoleRepo) ByRoleID(ctx context.Context, roleID uuid.UUID) ([]*domain.ProfileRole, error) {
+	var prs []*domain.ProfileRole
+	if err := r.DB().Where("role_id = ?", roleID).Find(&prs).Error; err != nil {
+		return nil, err
+	}
+	return prs, nil
+}
+func (r *profileRoleRepo) Delete(ctx context.Context, profileID uuid.UUID, roleID uuid.UUID) error {
+	return r.DB().Delete(&domain.ProfileRole{}, "profile_id = ? AND role_id = ?", profileID, roleID).Error
+}
+func (r *profileRoleRepo) CountByProfileID(ctx context.Context, profileID uuid.UUID) (int64, error) {
+	var count int64
+	if err := r.DB().Model(&domain.ProfileRole{}).Where("profile_id = ?", profileID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+func (r *profileRoleRepo) DeleteByRoleID(ctx context.Context, roleID uuid.UUID) error {
+	return r.DB().Delete(&domain.ProfileRole{}, "role_id = ?", roleID).Error
+}
+
 // Compile-time interface checks.
 var (
 	_ repository.UserRepository            = (*userRepo)(nil)
@@ -418,6 +534,10 @@ var (
 	_ repository.TokenRepository            = (*tokenRepo)(nil)
 	_ repository.LoginHistoryRepository     = (*loginHistoryRepo)(nil)
 	_ repository.TwoFactorSettingsRepository = (*twoFactorSettingsRepo)(nil)
+	_ repository.PermissionRepository        = (*permissionRepo)(nil)
+	_ repository.RoleRepository              = (*roleRepo)(nil)
+	_ repository.RolePermissionRepository    = (*rolePermissionRepo)(nil)
+	_ repository.ProfileRoleRepository       = (*profileRoleRepo)(nil)
 )
 
 // UserRepository returns a repository.UserRepository backed by PostgresStore.
@@ -438,6 +558,18 @@ func (s *PostgresStore) LoginHistoryRepository() repository.LoginHistoryReposito
 // TwoFactorSettingsRepository returns a repository.TwoFactorSettingsRepository backed by PostgresStore.
 func (s *PostgresStore) TwoFactorSettingsRepository() repository.TwoFactorSettingsRepository { return &twoFactorSettingsRepo{s} }
 
+// PermissionRepository returns a repository.PermissionRepository backed by PostgresStore.
+func (s *PostgresStore) PermissionRepository() repository.PermissionRepository { return &permissionRepo{s} }
+
+// RoleRepository returns a repository.RoleRepository backed by PostgresStore.
+func (s *PostgresStore) RoleRepository() repository.RoleRepository { return &roleRepo{s} }
+
+// RolePermissionRepository returns a repository.RolePermissionRepository backed by PostgresStore.
+func (s *PostgresStore) RolePermissionRepository() repository.RolePermissionRepository { return &rolePermissionRepo{s} }
+
+// ProfileRoleRepository returns a repository.ProfileRoleRepository backed by PostgresStore.
+func (s *PostgresStore) ProfileRoleRepository() repository.ProfileRoleRepository { return &profileRoleRepo{s} }
+
 // DB returns the underlying GORM DB instance for advanced operations.
 func (s *PostgresStore) DB() *gorm.DB {
 	return s.db
@@ -452,6 +584,10 @@ func (s *PostgresStore) AutoMigrate() error {
 		&domain.AuthToken{},
 		&domain.LoginHistory{},
 		&domain.TwoFactorSettings{},
+		&domain.Permission{},
+		&domain.Role{},
+		&domain.RolePermission{},
+		&domain.ProfileRole{},
 	)
 }
 

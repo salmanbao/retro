@@ -230,5 +230,5 @@ When in doubt, implement less.
 # Agent Context
 
 <!-- SPECKIT START -->
-Current feature plan: `specs/001-auth-multirole/plan.md`
+Current feature plan: `specs/002-rbac-authorization/plan.md`
 <!-- SPECKIT END -->
