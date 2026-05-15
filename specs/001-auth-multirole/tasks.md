@@ -35,14 +35,14 @@
 
 **CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create domain entities: User in `backend/src/domain/user.go`, Session in `backend/src/domain/session.go`, Profile in `backend/src/domain/profile.go`, AuthToken in `backend/src/domain/token.go`
-- [ ] T006 [P] Create repository interfaces: UserRepository, SessionRepository, ProfileRepository, TokenRepository in `backend/src/repository/interfaces.go`
-- [ ] T007 [P] Create PostgreSQL store implementation in `backend/src/adapter/postgres_store.go`
-- [ ] T008 Create email adapter interface and mock implementation in `backend/src/adapter/email_adapter.go`
-- [ ] T009 Create server wiring in `backend/src/server.go` with chi router setup
-- [ ] T010 Create error types in `backend/src/domain/errors.go` for domain-specific errors
-- [ ] T011 [P] Setup logging infrastructure in `backend/src/logging.go`
-- [ ] T012 Write unit tests for domain entities in `backend/tests/unit/domain_test.go`
+- [X] T005 Create domain entities: User in `backend/src/domain/user.go`, Session in `backend/src/domain/session.go`, Profile in `backend/src/domain/profile.go`, AuthToken in `backend/src/domain/token.go`
+- [X] T006 [P] Create repository interfaces: UserRepository, SessionRepository, ProfileRepository, TokenRepository in `backend/src/repository/interfaces.go`
+- [X] T007 [P] Create PostgreSQL store implementation in `backend/src/adapter/postgres_store.go`
+- [X] T008 Create email adapter interface and mock implementation in `backend/src/adapter/email_adapter.go`
+- [X] T009 Create server wiring in `backend/src/server.go` with chi router setup
+- [X] T010 Create error types in `backend/src/domain/errors.go` for domain-specific errors
+- [X] T011 [P] Setup logging infrastructure in `backend/src/logging.go`
+- [X] T012 Write unit tests for domain entities in `backend/tests/unit/domain_test.go`
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 

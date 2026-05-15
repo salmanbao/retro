@@ -10,19 +10,19 @@ import (
 type TokenType string
 
 const (
-	TokenTypeVerification   TokenType = "verification"
-	TokenTypePasswordReset  TokenType = "password_reset"
+	TokenTypeVerification  TokenType = "verification"
+	TokenTypePasswordReset TokenType = "password_reset"
 )
 
 // AuthToken represents a one-time token for email verification or password reset.
 type AuthToken struct {
 	ID        uuid.UUID  `json:"id"`
 	UserID    uuid.UUID  `json:"user_id"`
-	TokenType TokenType `json:"token_type"`
-	TokenHash string    `json:"-"`
-	ExpiresAt time.Time `json:"expires_at"`
+	TokenType TokenType  `json:"token_type"`
+	TokenHash string     `json:"-"`
+	ExpiresAt time.Time  `json:"expires_at"`
 	UsedAt    *time.Time `json:"used_at,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time  `json:"created_at"`
 }
 
 // NewAuthToken creates a new one-time auth token.

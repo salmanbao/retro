@@ -8,14 +8,14 @@ import (
 
 // Session represents an authenticated user connection.
 type Session struct {
-	ID             uuid.UUID  `json:"id"`
-	UserID         uuid.UUID  `json:"user_id"`
+	ID              uuid.UUID  `json:"id"`
+	UserID          uuid.UUID  `json:"user_id"`
 	ActiveProfileID *uuid.UUID `json:"active_profile_id,omitempty"`
-	TokenHash      string     `json:"-"`
-	UserAgent      string     `json:"user_agent,omitempty"`
-	IPAddress      string     `json:"ip_address,omitempty"`
-	ExpiresAt      time.Time  `json:"expires_at"`
-	CreatedAt      time.Time  `json:"created_at"`
+	TokenHash       string     `json:"-"`
+	UserAgent       string     `json:"user_agent,omitempty"`
+	IPAddress       string     `json:"ip_address,omitempty"`
+	ExpiresAt       time.Time  `json:"expires_at"`
+	CreatedAt       time.Time  `json:"created_at"`
 }
 
 // NewSession creates a new session for a user.

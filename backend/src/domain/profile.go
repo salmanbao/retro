@@ -18,8 +18,8 @@ const (
 
 // Profile represents a user's persona within the marketplace.
 type Profile struct {
-	ID         uuid.UUID       `json:"id"`
-	UserID     uuid.UUID       `json:"user_id"`
+	ID        uuid.UUID       `json:"id"`
+	UserID    uuid.UUID       `json:"user_id"`
 	Type      ProfileType     `json:"profile_type"`
 	Name      string          `json:"name"`
 	Details   json.RawMessage `json:"details"`
@@ -32,14 +32,14 @@ type Profile struct {
 func NewProfile(userID uuid.UUID, profileType ProfileType, name string, details json.RawMessage) *Profile {
 	now := time.Now()
 	return &Profile{
-		ID:         uuid.New(),
-		UserID:     userID,
-		Type:       profileType,
-		Name:       name,
-		Details:    details,
-		CreatedAt:  now,
-		UpdatedAt:  now,
-		DeletedAt:  nil,
+		ID:        uuid.New(),
+		UserID:    userID,
+		Type:      profileType,
+		Name:      name,
+		Details:   details,
+		CreatedAt: now,
+		UpdatedAt: now,
+		DeletedAt: nil,
 	}
 }
 

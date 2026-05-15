@@ -1,4 +1,4 @@
-package viralforge
+package src
 
 import (
 	"os"
@@ -17,17 +17,16 @@ type Config struct {
 }
 
 // Load returns a Config populated from environment variables.
-// Missing required variables cause a fatal error at startup.
 func Load() *Config {
 	return &Config{
-		DatabaseURL:  getEnv("DATABASE_URL", ""),
+		DatabaseURL:  os.Getenv("DATABASE_URL"),
 		SMTPHost:     getEnv("SMTP_HOST", "localhost"),
 		SMTPPort:     getEnv("SMTP_PORT", "587"),
 		SMTPUser:     getEnv("SMTP_USER", ""),
 		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
 		FromEmail:    getEnv("FROM_EMAIL", "noreply@viralforge.com"),
 		BaseURL:      getEnv("BASE_URL", "http://localhost:8080"),
-		TokenSecret:  getEnv("TOKEN_SECRET", ""),
+		TokenSecret:  os.Getenv("TOKEN_SECRET"),
 	}
 }
 
