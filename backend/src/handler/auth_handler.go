@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -14,12 +15,18 @@ import (
 
 // AuthHandler handles authentication HTTP endpoints.
 type AuthHandler struct {
-	authSvc *service.AuthService
+	authSvc         *service.AuthService
+	loginHistorySvc *service.LoginHistoryService
+	twoFactorSvc    *service.TwoFactorService
 }
 
 // NewAuthHandler creates a new AuthHandler.
-func NewAuthHandler(authSvc *service.AuthService) *AuthHandler {
-	return &AuthHandler{authSvc: authSvc}
+func NewAuthHandler(authSvc *service.AuthService, loginHistorySvc *service.LoginHistoryService, twoFactorSvc *service.TwoFactorService) *AuthHandler {
+	return &AuthHandler{
+		authSvc:         authSvc,
+		loginHistorySvc: loginHistorySvc,
+		twoFactorSvc:    twoFactorSvc,
+	}
 }
 
 // RegisterRequest represents the registration request body.
@@ -118,11 +125,14 @@ type LoginRequest struct {
 
 // LoginResponse represents a successful login response.
 type LoginResponse struct {
-	Token     string `json:"token"`
-	ExpiresAt string `json:"expires_at"`
+	Token      string `json:"token,omitempty"`
+	ExpiresAt  string `json:"expires_at"`
+	UserID     string `json:"user_id,omitempty"`
+	Requires2FA bool  `json:"requires_2fa,omitempty"`
 }
 
 // Login handles POST /api/v1/auth/login.
+// If 2FA is enabled, returns 200 with requires_2fa=true and user_id for 2FA verification.
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -140,7 +150,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userAgent := r.UserAgent()
-	ipAddress := r.RemoteAddr
+	ipAddress := getClientIP(r)
 	session, err := h.authSvc.Login(r.Context(), req.Email, req.Password, userAgent, ipAddress)
 	if err != nil {
 		if errors.Is(err, domain.ErrInvalidCredentials) {
@@ -153,10 +163,33 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if 2FA is enabled for this user
+	if h.twoFactorSvc != nil {
+		enabled, _ := h.twoFactorSvc.Is2FAEnabled(r.Context(), session.UserID)
+		if enabled {
+			// 2FA required - return partial response for 2FA verification
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(LoginResponse{
+				Token:     "", // Empty token - requires 2FA
+				ExpiresAt: session.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
+				UserID:    session.UserID.String(),
+				Requires2FA: true,
+			})
+			return
+		}
+	}
+
+	// Record login history
+	if h.loginHistorySvc != nil {
+		fingerprint := service.GenerateDeviceFingerprint(userAgent, "", "", "")
+		h.loginHistorySvc.RecordLogin(r.Context(), session.UserID, ipAddress, userAgent, fingerprint)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(LoginResponse{
-		Token:     session.TokenHash, // This is actually the raw token in our simplified impl
+		Token:     session.TokenHash,
 		ExpiresAt: session.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
 	})
 }
@@ -278,6 +311,62 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Password reset successfully. Please log in with your new password."})
 }
 
+// LoginHistoryResponse represents the login history response.
+type LoginHistoryResponse struct {
+	History    []*domain.LoginHistory `json:"history"`
+	Total      int64                 `json:"total"`
+	Page       int                   `json:"page"`
+	PageSize   int                   `json:"page_size"`
+	TotalPages int                   `json:"total_pages"`
+}
+
+// GetLoginHistory handles GET /api/v1/auth/login-history.
+func (h *AuthHandler) GetLoginHistory(w http.ResponseWriter, r *http.Request) {
+	if h.loginHistorySvc == nil {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "Login history service not available")
+		return
+	}
+
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		writeError(w, http.StatusUnauthorized, "unauthorized", "Not authenticated")
+		return
+	}
+
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
+	if pageSize < 1 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	histories, total, err := h.loginHistorySvc.GetLoginHistory(r.Context(), user.ID, page, pageSize)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to retrieve login history")
+		return
+	}
+
+	totalPages := int(total) / pageSize
+	if int(total)%pageSize > 0 {
+		totalPages++
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(LoginHistoryResponse{
+		History:    histories,
+		Total:      total,
+		Page:       page,
+		PageSize:   pageSize,
+		TotalPages: totalPages,
+	})
+}
+
 // RegisterRoutes registers auth routes on the router.
 func (h *AuthHandler) RegisterRoutes(r chi.Router) {
 	r.Post("/register", h.Register)
@@ -287,6 +376,11 @@ func (h *AuthHandler) RegisterRoutes(r chi.Router) {
 	r.Post("/forgot-password", h.ForgotPassword)
 	r.Post("/reset-password", h.ResetPassword)
 	r.Get("/me", h.Me)
+}
+
+// RegisterLoginHistoryRoutes registers the login history route.
+func (h *AuthHandler) RegisterLoginHistoryRoutes(r chi.Router) {
+	r.Get("/login-history", h.GetLoginHistory)
 }
 
 func writeError(w http.ResponseWriter, status int, err, msg string) {
@@ -306,4 +400,19 @@ func extractBearerToken(r *http.Request) string {
 		return ""
 	}
 	return parts[1]
+}
+
+// getClientIP extracts the real client IP from the request.
+func getClientIP(r *http.Request) string {
+	// Check X-Forwarded-For header first
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		return strings.TrimSpace(parts[0])
+	}
+	// Check X-Real-IP header
+	if xri := r.Header.Get("X-Real-IP"); xri != "" {
+		return xri
+	}
+	// Fall back to RemoteAddr
+	return r.RemoteAddr
 }

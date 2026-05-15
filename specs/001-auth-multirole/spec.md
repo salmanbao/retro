@@ -57,6 +57,9 @@ Excluded from this feature:
 - Q: Should CSRF protection be added for state-changing operations? → A: SameSite=Strict cookies + custom X-CSRF-Token header on state-changing requests
 - Q: Should application-layer rate limiting be added beyond infrastructure? → A: No — rely on account lockout and infrastructure rate limiting
 - Q: Should verification token expiry be stored as a database column? → A: Store expires_at in auth_tokens table, validate on lookup
+- Q: Login history scope? → A: IP address, user agent, timestamp, city/country (via IP geolocation), device fingerprint
+- Q: 2FA setup flow? → A: User navigates to settings → enables 2FA → system generates QR code → user scans with authenticator app → enters verification code to confirm
+- Q: 2FA recovery codes? → A: Generate 8 one-time backup codes at 2FA setup, allow user to download/save them, use one code to disable 2FA if locked out
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -162,6 +165,48 @@ Users can only access features and data appropriate to their currently active pr
 
 ---
 
+### User Story 7 - Login History (Priority: P2)
+
+A user can view their login history to monitor account access. Each login record includes timestamp, IP address, geographic location, device fingerprint, and user agent. Login history supports security auditing and helps users identify unauthorized access.
+
+**Why this priority**: Login history is essential for security compliance (SOC2, GDPR) and helps users detect account compromise. It provides accountability without adding friction to the login flow.
+
+**Independent Test**: Can be fully tested by logging in from different devices/locations, then viewing the login history and confirming all entries are accurate.
+
+**Acceptance Scenarios**:
+
+1. **Given** an authenticated user, **When** they view their login history, **Then** the system displays all recent logins with timestamp, location, device, and user agent.
+
+2. **Given** a user viewing login history, **When** entries exceed the page size, **Then** the system paginates results with the most recent entries first.
+
+3. **Given** an authenticated user, **When** they notice a suspicious login, **Then** they can see the session details and revoke if needed.
+
+---
+
+### User Story 8 - Two-Factor Authentication via Authenticator App (Priority: P2)
+
+A verified user can enable two-factor authentication (2FA) using a TOTP authenticator app (Google Authenticator, Authy, etc.). During login, after entering email and password, the user must enter a 6-digit code from their authenticator app. Users receive 8 backup codes at setup for account recovery.
+
+**Why this priority**: 2FA significantly reduces account takeover risk. TOTP is the most widely supported standard — no SMS costs, no carrier dependency, works offline. Backup codes ensure users are never permanently locked out.
+
+**Independent Test**: Can be fully tested by enabling 2FA with an authenticator app, logging out, logging back in with password + TOTP code, confirming access, and verifying backup code flow.
+
+**Acceptance Scenarios**:
+
+1. **Given** a verified user, **When** they navigate to settings and enable 2FA, **Then** the system generates a QR code and shows backup codes.
+
+2. **Given** a user who has set up 2FA, **When** they log in with correct email and password, **Then** the system prompts for a 2FA verification code.
+
+3. **Given** a user with 2FA enabled, **When** they enter a valid TOTP code, **Then** the system creates a session and grants access.
+
+4. **Given** a user with 2FA enabled, **When** they enter an invalid TOTP code, **Then** the system rejects the attempt.
+
+5. **Given** a user who has lost access to their authenticator app, **When** they use a backup code to log in, **Then** the system grants access and disables 2FA on that account.
+
+6. **Given** a user who uses all backup codes, **When** they attempt to log in, **Then** the system rejects and prompts them to contact support.
+
+---
+
 ### User Story 6 - Profile Management (Priority: P3)
 
 A user can view, update, and delete their own profiles. Deleting a profile removes it from the account but does not affect other profiles. The system tracks when each profile was created and last modified.
@@ -194,6 +239,11 @@ A user can view, update, and delete their own profiles. Deleting a profile remov
 - What happens when a user has 5 failed login attempts? The account is locked for 15 minutes; subsequent login attempts return "account locked" error.
 - What happens when an attacker tries session fixation? The session ID is regenerated after login, invalidating any pre-authentication session ID.
 - What happens when a CSRF attack is attempted? SameSite=Strict prevents cross-site cookies; state-changing requests without valid X-CSRF-Token are rejected.
+- What happens when a user enables 2FA? The system generates a QR code for TOTP setup and displays 8 backup codes.
+- What happens when a user enters wrong TOTP codes? Each failed attempt is tracked; excessive failures may indicate brute force.
+- What happens when a user uses a backup code? The system grants access and disables 2FA on that account.
+- What happens when all 8 backup codes are used? The system rejects login and prompts user to contact support.
+- What happens when a user tries to enable 2FA on an unverified account? The system requires email verification before enabling 2FA.
 
 ## Requirements *(mandatory)*
 
@@ -228,6 +278,13 @@ A user can view, update, and delete their own profiles. Deleting a profile remov
 - **FR-027**: The system MUST implement account lockout after 5 failed login attempts with a 15-minute cooldown.
 - **FR-028**: The system MUST regenerate session ID after successful login to prevent session fixation attacks.
 - **FR-029**: The system MUST enforce CSRF protection via SameSite=Strict cookies and X-CSRF-Token header on state-changing requests.
+- **FR-030**: The system MUST record login events with IP address, user agent, timestamp, geolocation, and device fingerprint.
+- **FR-031**: The system MUST allow users to view their login history with pagination.
+- **FR-032**: The system MUST allow users to enable 2FA via TOTP authenticator app.
+- **FR-033**: The system MUST generate a QR code for TOTP setup and validate the first verification code.
+- **FR-034**: The system MUST generate 8 one-time backup codes during 2FA setup and allow users to download them.
+- **FR-035**: The system MUST require valid TOTP code on login for users with 2FA enabled.
+- **FR-036**: The system MUST allow a backup code to disable 2FA and grant login access.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -236,6 +293,9 @@ A user can view, update, and delete their own profiles. Deleting a profile remov
 - **Role Profile**: Represents a user's persona within the marketplace. Contains profile type (Brand, Editor, or Influencer), type-specific details, and timestamps. Multiple profiles may belong to one account.
 - **Password Reset Token**: Represents a time-limited password reset capability. Contains token, associated user, expiration time (stored in `expires_at` column), and used status. Single-use; consumed when reset link is used.
 - **Email Verification Token**: Represents a time-limited email verification capability. Contains token, associated user, expiration time (stored in `expires_at` column), and verified status. Single-use; consumed when verification link is clicked.
+- **Login History Entry**: Represents a login event. Contains timestamp, IP address, geolocation (city/country), device fingerprint, user agent, and associated user. Used for security auditing.
+- **Two-Factor Authentication (2FA) Settings**: Represents a user's 2FA configuration. Contains TOTP secret (encrypted), enabled status, and backup codes (hashed). One per user.
+- **Backup Code**: Represents a one-time recovery code for 2FA. Contains code hash, used status. Eight codes generated at 2FA setup.
 
 ## Success Criteria *(mandatory)*
 

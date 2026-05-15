@@ -21,7 +21,7 @@
 **Purpose**: Project initialization and basic structure
 
 - [X] T001 Create project directory structure per plan.md: `backend/src/domain/`, `backend/src/repository/`, `backend/src/service/`, `backend/src/handler/`, `backend/src/middleware/`, `backend/src/adapter/`, `backend/migrations/`, `backend/tests/unit/`, `backend/tests/integration/`, `backend/tests/contract/`
-- [X] T002 Initialize Go module with dependencies: chi (routing), pgx/v5 (Postgres), golang.org/x/crypto/bcrypt (hashing), github/google/uuid (UUIDs), stretchr/testify (assertions)
+- [X] T002 Initialize Go module with dependencies: chi (routing), gorm (ORM), pgx/v5 (Postgres), golang.org/x/crypto/bcrypt (hashing), github/google/uuid (UUIDs), stretchr/testify (assertions)
 - [X] T003 [P] Configure environment variables: DATABASE_URL, SMTP_HOST, BASE_URL, TOKEN_SECRET in `backend/src/config.go`
 - [X] T004 [P] Create SQL migration files in `backend/migrations/`: `001_create_users.sql`, `002_create_sessions.sql`, `003_create_profiles.sql`, `004_create_auth_tokens.sql`
 
@@ -37,7 +37,7 @@
 
 - [X] T005 Create domain entities: User in `backend/src/domain/user.go`, Session in `backend/src/domain/session.go`, Profile in `backend/src/domain/profile.go`, AuthToken in `backend/src/domain/token.go`
 - [X] T006 [P] Create repository interfaces: UserRepository, SessionRepository, ProfileRepository, TokenRepository in `backend/src/repository/interfaces.go`
-- [X] T007 [P] Create PostgreSQL store implementation in `backend/src/adapter/postgres_store.go`
+- [X] T007 [P] Create GORM store implementation in `backend/src/adapter/postgres_store.go`
 - [X] T008 Create email adapter interface and mock implementation in `backend/src/adapter/email_adapter.go`
 - [X] T009 Create server wiring in `backend/src/server.go` with chi router setup
 - [X] T010 Create error types in `backend/src/domain/errors.go` for domain-specific errors
@@ -87,22 +87,22 @@
 ### Tests for User Story 2
 
 - [X] T025 [P] [US2] Unit test for login credential validation in `backend/tests/unit/auth_service_test.go`
-- [ ] T026 [P] [US2] Unit test for session creation and expiration in `backend/tests/unit/session_service_test.go`
+- [X] T026 [P] [US2] Unit test for session creation and expiration in `backend/tests/unit/session_service_test.go`
 - [X] T027 [US2] Integration test for login flow in `backend/tests/integration/auth_service_test.go`
-- [ ] T028 [US2] Integration test for session revocation in `backend/tests/integration/session_service_test.go`
+- [X] T028 [US2] Integration test for session revocation in `backend/tests/integration/session_service_test.go`
 - [X] T029 [US2] Contract test for POST /auth/login, POST /auth/logout, GET /sessions, DELETE /sessions/{id} endpoints
 
 ### Implementation for User Story 2
 
 - [X] T030 [P] [US2] Implement Login method in `backend/src/service/auth_service.go`
-- [ ] T031 [P] [US2] Implement Logout method in `backend/src/service/session_service.go`
-- [ ] T032 [US2] Implement ListSessions method in `backend/src/service/session_service.go`
-- [ ] T033 [US2] Implement RevokeSession method in `backend/src/service/session_service.go`
+- [X] T031 [P] [US2] Implement Logout method in `backend/src/service/session_service.go`
+- [X] T032 [US2] Implement ListSessions method in `backend/src/service/session_service.go`
+- [X] T033 [US2] Implement RevokeSession method in `backend/src/service/session_service.go`
 - [X] T034 [US2] Create auth middleware in `backend/src/middleware/auth_middleware.go` for session validation
 - [X] T035 [US2] Create POST /auth/login endpoint with credential validation
 - [X] T036 [US2] Create POST /auth/logout endpoint
-- [ ] T037 [US2] Create GET /sessions endpoint
-- [ ] T038 [US2] Create DELETE /sessions/{session_id} endpoint
+- [X] T037 [US2] Create GET /sessions endpoint
+- [X] T038 [US2] Create DELETE /sessions/{session_id} endpoint
 - [X] T039 [US2] Add session token hashing (bcrypt) for storage
 - [X] T040 [US2] Add user agent and IP address capture on login
 
@@ -238,18 +238,80 @@
 
 ---
 
-## Phase 9: Polish & Cross-Cutting Concerns
+## Phase 10: User Story 7 - Login History (Priority: P2)
+
+**Goal**: Users can view their login history with IP, geolocation, device fingerprint, and user agent for security auditing
+
+**Independent Test**: Log in from different devices/locations, view login history, confirm all entries display correct data
+
+### Tests for User Story 7
+
+- [X] T099 [P] [US7] Unit test for login history recording in `backend/tests/unit/auth_service_test.go`
+- [X] T100 [P] [US7] Unit test for device fingerprint generation in `backend/tests/unit/auth_service_test.go`
+- [X] T101 [US7] Integration test for login history recording on successful login in `backend/tests/integration/auth_service_test.go`
+- [X] T102 [US7] Contract test for GET /auth/login-history endpoint
+
+### Implementation for User Story 7
+
+- [X] T103 [P] [US7] Create LoginHistory entity in `backend/src/domain/login_history.go`
+- [X] T104 [P] [US7] Add LoginHistory repository methods to `backend/src/adapter/postgres_store.go`
+- [X] T105 [US7] Create LoginHistoryService in `backend/src/service/login_history_service.go`
+- [X] T106 [US7] Add device fingerprint generation function in `backend/src/service/auth_service.go`
+- [X] T107 [US7] Add geolocation lookup (via IP) in `backend/src/service/auth_service.go`
+- [X] T108 [US7] Update Login method to record login history after successful authentication
+- [X] T109 [US7] Create GET /auth/login-history endpoint with pagination
+- [X] T110 [US7] Add login history pagination (default 20 per page, most recent first)
+
+**Checkpoint**: User Story 7 fully functional and testable independently
+
+---
+
+## Phase 11: User Story 8 - Two-Factor Authentication via Authenticator App (Priority: P2)
+
+**Goal**: Users can enable TOTP-based 2FA using Google Authenticator/Authy, with 8 backup codes for recovery
+
+**Independent Test**: Enable 2FA with authenticator app, log out, log back in with password + TOTP code, verify backup code flow
+
+### Tests for User Story 8
+
+- [X] T111 [P] [US8] Unit test for TOTP secret generation in `backend/tests/unit/two_factor_service_test.go`
+- [X] T112 [P] [US8] Unit test for TOTP code validation (±1 window tolerance) in `backend/tests/unit/two_factor_service_test.go`
+- [X] T113 [P] [US8] Unit test for backup code generation and hashing in `backend/tests/unit/two_factor_service_test.go`
+- [ ] T114 [US8] Integration test for 2FA setup flow in `backend/tests/integration/two_factor_service_test.go`
+- [ ] T115 [US8] Integration test for login with 2FA in `backend/tests/integration/auth_service_test.go`
+- [ ] T116 [US8] Contract test for POST /auth/2fa/setup, POST /auth/2fa/verify, POST /auth/2fa/disable endpoints
+
+### Implementation for User Story 8
+
+- [X] T117 [P] [US8] Create TwoFactorSettings entity in `backend/src/domain/two_factor_settings.go`
+- [X] T118 [P] [US8] Create TwoFactorSettings repository in `backend/src/adapter/postgres_store.go`
+- [X] T119 [US8] Create TwoFactorService in `backend/src/service/two_factor_service.go`
+- [X] T120 [US8] Add TOTP secret generation using github.com/pquerna/otp
+- [X] T121 [US8] Add TOTP secret encryption (AES-256-GCM) for storage
+- [X] T122 [US8] Add QR code generation for authenticator app setup
+- [X] T123 [US8] Add backup code generation (8 codes, 10 chars each, bcrypt hashed)
+- [X] T124 [US8] Create POST /auth/2fa/setup endpoint (generates QR code + backup codes)
+- [X] T125 [US8] Create POST /auth/2fa/verify endpoint (validates TOTP code to confirm setup)
+- [X] T126 [US8] Create POST /auth/2fa/disable endpoint (uses backup code to disable 2FA)
+- [X] T127 [US8] Update login flow to require TOTP code when 2FA is enabled
+- [X] T128 [US8] Add backup code validation (marks as used after successful login)
+
+**Checkpoint**: User Story 8 fully functional and testable independently
+
+---
+
+## Phase 12: Polish & Cross-Cutting Concerns
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [X] T085 [P] Run all unit tests in `backend/tests/unit/` and fix any failures
-- [X] T086 [P] Run all integration tests in `backend/tests/integration/` and fix any failures
-- [X] T087 [P] Run all contract tests in `backend/tests/contract/` and fix any failures
-- [X] T088 Add security hardening: rate limiting on auth endpoints (handled by infrastructure, noted for awareness)
-- [X] T089 Add audit logging for security events (login, logout, password change) in `backend/src/service/auth_service.go`
-- [X] T090 [P] Update quickstart.md with any environment-specific notes
-- [X] T091 Verify implementation against spec.md acceptance criteria
-- [X] T092 Run full test suite and confirm 100% pass rate
+- [ ] T129 [P] Run all unit tests in `backend/tests/unit/` and fix any failures
+- [ ] T130 [P] Run all integration tests in `backend/tests/integration/` and fix any failures
+- [ ] T131 [P] Run all contract tests in `backend/tests/contract/` and fix any failures
+- [ ] T132 Add security hardening: rate limiting on auth endpoints (handled by infrastructure, noted for awareness)
+- [ ] T133 Add audit logging for security events (login, logout, password change) in `backend/src/service/auth_service.go`
+- [ ] T134 [P] Update quickstart.md with any environment-specific notes
+- [ ] T135 Verify implementation against spec.md acceptance criteria
+- [ ] T136 Run full test suite and confirm 100% pass rate
 
 ---
 
@@ -263,7 +325,9 @@
   - User stories can proceed in parallel (if staffed)
   - Or sequentially in priority order (P1 → P2 → P3)
 - **Security Enhancements (Phase 8.5)**: Depends on User Story 2 (needs login flow to add lockout/regeneration)
-- **Polish (Phase 9)**: Depends on all desired user stories being complete
+- **User Story 7 (Login History)**: Depends on User Story 2 (needs login flow to capture history)
+- **User Story 8 (2FA)**: Depends on User Story 1 (needs verified account for 2FA setup)
+- **Polish (Phase 12)**: Depends on all desired user stories being complete
 
 ### User Story Dependencies
 
@@ -273,6 +337,8 @@
 - **User Story 4 (P2)**: Can start after Foundational (Phase 2) — No dependencies on other stories
 - **User Story 5 (P2)**: Depends on User Story 4 (profiles must exist before switching)
 - **User Story 6 (P3)**: Depends on User Story 4 (profiles must exist before managing)
+- **User Story 7 (P2)**: Depends on User Story 2 (login flow needed to capture history)
+- **User Story 8 (P2)**: Depends on User Story 1 (verified account required for 2FA)
 
 ### Within Each User Story
 
@@ -288,22 +354,9 @@
 - Once Foundational phase completes, User Stories 1, 2, 3, 4 can start in parallel
 - User Story 5 depends on User Story 4 — sequential
 - User Story 6 depends on User Story 4 — sequential
+- User Stories 7 and 8 can run in parallel with other P2 stories once dependencies met
 - All tests for a user story marked [P] can run in parallel
 - Models within a story marked [P] can run in parallel
-
----
-
-## Parallel Example: User Story 1
-
-```bash
-# Launch all tests for User Story 1 together:
-Task: T013 Unit test for User registration validation
-Task: T014 Unit test for email verification token consumption
-
-# Launch all implementation for User Story 1 together:
-Task: T017 Implement Register method
-Task: T018 Implement VerifyEmail method
-```
 
 ---
 
@@ -328,6 +381,9 @@ Task: T018 Implement VerifyEmail method
 5. Add User Story 4 → Test independently → Deploy/Demo (profiles)
 6. Add User Story 5 → Test independently → Deploy/Demo (RBAC)
 7. Add User Story 6 → Test independently → Deploy/Demo (profile management)
+8. Add Phase 8.5 → Test security enhancements
+9. Add User Story 7 → Test independently → Deploy/Demo (login history)
+10. Add User Story 8 → Test independently → Deploy/Demo (2FA)
 
 ### Parallel Team Strategy
 
@@ -341,6 +397,9 @@ With multiple developers:
 3. After User Story 4 is done:
    - Developer A: User Story 5
    - Developer B: User Story 6
+   - Developer C: User Story 7 (Login History)
+4. After User Story 1 verified:
+   - Developer A: User Story 8 (2FA)
 
 ---
 
@@ -353,9 +412,11 @@ With multiple developers:
 - Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
-- Total tasks: 98
+- Total tasks: 136
 - User Stories 1-3 (P1): 39 tasks (core auth — MVP scope)
 - User Stories 4-6 (P2/P3): 35 tasks (profile management)
+- Security enhancements (Phase 8.5): 6 tasks
+- User Story 7 (Login History): 12 tasks
+- User Story 8 (2FA): 18 tasks
 - Setup + Foundational: 18 tasks
-- Security enhancements: 6 tasks (account lockout, session regeneration, CSRF)
 - Polish: 8 tasks

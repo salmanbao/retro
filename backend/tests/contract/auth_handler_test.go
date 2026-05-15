@@ -207,7 +207,7 @@ func setupTestHandler() (*handler.AuthHandler, *mockUserRepo, *mockTokenRepo, *m
 	tokenRepo := newMockTokenRepo()
 	emailSvc := &mockEmailSvc{}
 	authSvc := service.NewAuthService(userRepo, sessionRepo, tokenRepo, emailSvc, "http://localhost:8080")
-	authHandler := handler.NewAuthHandler(authSvc)
+	authHandler := handler.NewAuthHandler(authSvc, nil, nil)
 	return authHandler, userRepo, tokenRepo, emailSvc
 }
 

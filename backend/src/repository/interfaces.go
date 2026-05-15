@@ -43,3 +43,17 @@ type TokenRepository interface {
 	Update(ctx context.Context, token *domain.AuthToken) error
 	DeleteByUserIDAndType(ctx context.Context, userID uuid.UUID, tokenType domain.TokenType) error
 }
+
+// LoginHistoryRepository defines operations on LoginHistory entities.
+type LoginHistoryRepository interface {
+	Create(ctx context.Context, history *domain.LoginHistory) error
+	ByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.LoginHistory, error)
+	CountByUserID(ctx context.Context, userID uuid.UUID) (int64, error)
+}
+
+// TwoFactorSettingsRepository defines operations on TwoFactorSettings entities.
+type TwoFactorSettingsRepository interface {
+	Create(ctx context.Context, settings *domain.TwoFactorSettings) error
+	ByUserID(ctx context.Context, userID uuid.UUID) (*domain.TwoFactorSettings, error)
+	Update(ctx context.Context, settings *domain.TwoFactorSettings) error
+}

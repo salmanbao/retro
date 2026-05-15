@@ -105,3 +105,53 @@ users(failed_login_attempts INT, locked_until TIMESTAMP)
 **Decision**: 24-hour inactivity timeout per spec assumption.
 
 **Rationale**: Reasonable balance between security and UX. Sessions expire automatically if user is inactive.
+
+## Login History
+
+**Decision**: Store login events in `login_history` table with IP, user agent, timestamp, geolocation, device fingerprint.
+
+**Geolocation**: Use IP-based geolocation via MaxMind GeoLite2 database or similar. Store city/country as string fields.
+
+**Device fingerprint**: Hash of user agent + accept language + screen resolution + timezone, stored as `device_fingerprint` column. Not cryptographic — serves as human-readable identifier.
+
+**Rationale**: Login history is standard for SOC2/GDPR compliance. Geolocation helps users identify unauthorized access. Device fingerprint allows users to recognize their devices.
+
+**Storage schema**:
+```sql
+login_history(id, user_id, ip_address, user_agent, device_fingerprint, city, country, latitude, longitude, logged_in_at)
+```
+
+**Alternatives considered**:
+- No history: rejected — security auditing requirement
+- Store only IP: insufficient — users can't identify devices easily
+
+## TOTP 2FA (Time-based One-Time Password)
+
+**Decision**: TOTP using RFC 6238 (Google Authenticator, Authy, etc.). 6-digit codes, 30-second window.
+
+**Secret storage**: 20-byte base32-encoded secret stored encrypted in DB. Use AES-256-GCM encryption with a master key from environment variable.
+
+**QR code generation**: Format `otpauth://totp/{issuer}:{email}?secret={secret}&issuer={issuer}&digits=6&period=30`
+
+**Verification**: On login, after password validation, prompt for TOTP code. Valid if code matches current or previous 30-second window (±1 window = 90 seconds total tolerance).
+
+**Backup codes**: 8 codes, each 10 characters, hashed with bcrypt. Stored as array in `user.backup_codes` (JSONB) or separate table. Each code can only be used once.
+
+**Setup flow**: User navigates to settings → enables 2FA → system generates QR code and shows backup codes → user scans and confirms with first code.
+
+**Rationale**: TOTP is the most widely supported 2FA standard. Works offline, no SMS costs, no carrier dependency. Backup codes prevent permanent lockout.
+
+**Alternatives considered**:
+- SMS 2FA: rejected — carrier costs, SIM swap vulnerability
+- Email 2FA: rejected — less secure than TOTP
+- Hardware keys (WebAuthn): future consideration, not this phase
+
+**Implementation libraries**:
+- `github.com/pquerna/otp` for Go TOTP generation and validation
+- QR code generation via `github.com/skip2/go-qrcode`
+- Backup code hashing: same bcrypt as passwords
+
+**Security notes**:
+- TOTP secrets must be encrypted at rest (not plaintext in DB)
+- Backup codes must be hashed like passwords
+- Failed 2FA attempts should be rate-limited separately

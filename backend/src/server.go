@@ -46,6 +46,7 @@ func (s *Server) Setup() {
 
 	s.router.Get("/health", s.healthCheck)
 
+	// Create services
 	authSvc := service.NewAuthService(
 		s.store.UserRepository(),
 		s.store.SessionRepository(),
@@ -53,20 +54,35 @@ func (s *Server) Setup() {
 		s.email,
 		s.cfg.BaseURL,
 	)
-	authHandler := handler.NewAuthHandler(authSvc)
-	authMw := authMiddleware.NewAuthMiddleware(s.store.SessionRepository(), s.store.UserRepository())
+	loginHistorySvc := service.NewLoginHistoryService(s.store)
+
+	var encryptionKey []byte
+	if s.cfg.EncryptionKey != "" {
+		encryptionKey = []byte(s.cfg.EncryptionKey)
+	} else {
+		// Use a default key for development (NOT for production)
+		encryptionKey = []byte("default-32-byte-key-for-dev!")
+	}
+	twoFactorSvc := service.NewTwoFactorService(s.store, encryptionKey)
 
 	profileSvc := service.NewProfileService(
 		s.store.ProfileRepository(),
 		s.store.UserRepository(),
 	)
-	profileHandler := handler.NewProfileHandler(profileSvc)
 
 	sessionSvc := service.NewSessionService(
 		s.store.SessionRepository(),
 		s.store.ProfileRepository(),
 	)
+
+	// Create handlers
+	authHandler := handler.NewAuthHandler(authSvc, loginHistorySvc, twoFactorSvc)
 	sessionHandler := handler.NewSessionHandler(sessionSvc)
+	profileHandler := handler.NewProfileHandler(profileSvc)
+	twoFactorHandler := handler.NewTwoFactorHandler(twoFactorSvc, authSvc)
+
+	// Create middleware
+	authMw := authMiddleware.NewAuthMiddleware(s.store.SessionRepository(), s.store.UserRepository())
 
 	s.router.Route("/api/v1/auth", func(r chi.Router) {
 		authHandler.RegisterRoutes(r)
@@ -86,6 +102,16 @@ func (s *Server) Setup() {
 		r.Use(authMw.Authenticate)
 		r.Patch("/active", sessionHandler.SwitchActiveProfile)
 		sessionHandler.RegisterRoutes(r)
+	})
+	// 2FA routes
+	s.router.Route("/api/v1/auth/2fa", func(r chi.Router) {
+		r.Use(authMw.Authenticate)
+		twoFactorHandler.RegisterRoutes(r)
+	})
+	// Login history route
+	s.router.Route("/api/v1/auth/login-history", func(r chi.Router) {
+		r.Use(authMw.Authenticate)
+		authHandler.RegisterLoginHistoryRoutes(r)
 	})
 }
 

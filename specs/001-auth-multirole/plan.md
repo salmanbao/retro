@@ -2,134 +2,81 @@
 
 **Branch**: `main` | **Date**: 2026-05-15 | **Spec**: [spec.md](./spec.md)
 
-**Input**: Feature specification updated with security enhancements from clarification session
+**Input**: Feature specification from `spec.md` with User Stories 1-8
 
 ## Summary
 
-Build authentication and multi-role user management for ViralForge — a three-sided marketplace. Users register with email/password, verify via email, maintain multiple sessions, reset passwords, and manage Brand/Editor/Influencer profiles with role-based authorization.
-
-**Technical approach**: Go backend using chi router, PostgreSQL for persistence, bcrypt for password hashing (cost 12), server-side session tokens (UUID), adapter pattern for email.
-
-**Security additions (from clarification)**:
-- Account lockout: 5 failed attempts → 15-minute lock
-- Session regeneration on login (fixation prevention)
-- CSRF protection: SameSite=Strict + X-CSRF-Token header
-- Token expiry stored in `expires_at` column (not business logic)
+Go backend with GORM ORM providing email/password authentication, multi-role profiles (Brand/Editor/Influencer), session management, password reset, login history tracking, and TOTP-based 2FA. PostgreSQL database with server-side sessions. Chi router for HTTP routing. bcrypt for password hashing, AES-256-GCM for TOTP secrets.
 
 ## Technical Context
 
-**Language/Version**: Go 1.21+
-
-**Primary Dependencies**:
-- `github.com/go-chi/chi/v5` — HTTP routing
-- `github.com/jackc/pgx/v5` — PostgreSQL driver
-- `golang.org/x/crypto/bcrypt` — Password hashing
-- `github.com/google/uuid` — UUID generation
-
-**Storage**: PostgreSQL (sessions, users, profiles, auth_tokens)
-
-**Testing**: Go stdlib `testing` + `github.com/stretchr/testify`
-
-**Target Platform**: Linux server (REST API)
-
-**Project Type**: Web service (REST API)
-
-**Performance Goals**: 10k concurrent sessions, 99% auth API success rate
-
-**Constraints**: Session timeout 24h, password reset tokens expire in 1h, verification tokens expire in 24h
-
-**Scale/Scope**: 10k concurrent users, 6 user stories
+| Field | Value |
+|-------|-------|
+| Language/Version | Go 1.23 |
+| Primary Dependencies | chi/v5, gorm, pgx/v5, bcrypt, otp library, qrcode library |
+| Storage | PostgreSQL with GORM |
+| Testing | stretchr/testify |
+| Target Platform | Linux server |
+| Project Type | Web service (REST API) |
+| Performance Goals | 10k concurrent sessions, 1000 req/s auth endpoints |
+| Constraints | <200ms p95 latency, 24hr session timeout |
+| Scale/Scope | 10k users, 6 entities |
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
-
-| Rule | Status | Notes |
-|------|--------|-------|
-| Specification is law | ✓ PASS | All features traceable to spec |
-| Simplicity mandatory | ✓ PASS | Single DB, no unnecessary abstractions |
-| One task at a time | ✓ PASS | Task list defines execution order |
-| Tests required | ✓ PASS | Unit, integration, contract tests exist |
-| No architectural drift | ✓ PASS | No new modules beyond spec |
-| Financial correctness | N/A | No financial operations |
+| Requirement | Status |
+|-------------|--------|
+| GORM as sole DB access mechanism | PASS — using gorm.io/gorm |
+| No raw SQL in application code | PASS — repository layer uses GORM methods |
+| Domain isolation (no framework deps in domain) | PASS — domain package is pure |
+| ORM queries in adapter layer | PASS |
+| AutoMigrate for schema management | PASS |
 
 ## Project Structure
-
-### Documentation (this feature)
-
-```text
-specs/001-auth-multirole/
-├── plan.md              # This file
-├── research.md          # Technical decisions
-├── data-model.md        # Entity definitions
-├── quickstart.md        # Integration scenarios
-├── contracts/           # API contracts
-├── checklists/          # Validation checklists
-└── tasks.md             # Task breakdown
-```
-
-### Source Code (backend/)
 
 ```text
 backend/
 ├── src/
-│   ├── domain/          # User, Session, Profile, errors
+│   ├── domain/          # Pure domain entities (User, Session, Profile, AuthToken, LoginHistory, TwoFactorSettings)
 │   ├── repository/      # Repository interfaces
-│   ├── adapter/         # PostgresStore, EmailAdapter
-│   ├── service/        # AuthService, SessionService, ProfileService
-│   ├── handler/        # AuthHandler, SessionHandler, ProfileHandler
-│   ├── middleware/     # AuthMiddleware, CSRFMiddleware
-│   ├── config.go       # Environment config
-│   ├── logging.go      # Logging setup
-│   └── server.go       # Router wiring
-├── migrations/          # SQL migrations
-└── tests/
-    ├── unit/           # Domain & service tests
-    ├── integration/    # Repository tests
-    └── contract/       # API endpoint tests
-```
-
-**Structure Decision**: Standard layered Go architecture with clear separation: domain → repository → service → handler → middleware.
+│   ├── adapter/         # GORM implementations (PostgresStore)
+│   ├── service/         # AuthService, ProfileService, SessionService, LoginHistoryService, TwoFactorService
+│   ├── handler/         # HTTP handlers (AuthHandler, ProfileHandler, SessionHandler, TwoFactorHandler)
+│   ├── middleware/      # AuthMiddleware, RequireCSRF
+│   └── config.go         # Environment-driven configuration
+├── migrations/          # SQL migration files (reference only, GORM AutoMigrate primary)
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── contract/
+└── go.mod
 
 ## Complexity Tracking
 
-> No violations requiring justification.
+> No violations. Constitution compliance achieved with GORM-only approach.
 
-## New Security Implementation Details
+## Technology Decisions
 
-### Account Lockout (FR-027)
+| Decision | Choice | Rationale |
+|----------|--------|----------|
+| ORM | GORM (gorm.io/gorm) | Constitution mandate; good Go support |
+| Session tokens | UUID (server-side) | Revocable, instant logout support |
+| Password hashing | bcrypt cost 12 | OWASP recommended |
+| 2FA algorithm | TOTP (RFC 6238) | Widest support, works offline |
+| 2FA libraries | github.com/pquerna/otp | Standard Go TOTP library |
+| QR code generation | github.com/skip2/go-qrcode | Simple, no external service |
+| Geolocation | MaxMind GeoLite2 (optional) | Industry standard, free tier |
+| Encryption | AES-256-GCM | For TOTP secrets at rest |
 
-| Field | Detail |
-|-------|--------|
-| Threshold | 5 failed login attempts |
-| Lockout duration | 15 minutes |
-| Reset | Automatic after 15 minutes |
-| Storage | `failed_login_attempts`, `locked_until` columns on users table |
+## New Entities Summary
 
-### Session Regeneration (FR-028)
+| Entity | Purpose |
+|--------|---------|
+| LoginHistory | Audit trail of login events with geolocation and device fingerprint |
+| TwoFactorSettings | TOTP secret (encrypted), enabled flag, backup codes (hashed) |
 
-| Event | Action |
-|-------|--------|
-| Login success | Generate new session ID, invalidate old |
-| Session ID format | UUID v4 (same as new sessions) |
+## Phased Implementation Order
 
-### CSRF Protection (FR-029)
-
-| Layer | Implementation |
-|-------|---------------|
-| Cookie | SameSite=Strict; HttpOnly; Secure |
-| Header | `X-CSRF-Token` required on POST/PATCH/DELETE |
-| Generation | New CSRF token returned on login and profile switch |
-
-### Token Expiry (Clarification)
-
-| Token Type | Storage | Validation |
-|------------|---------|------------|
-| Email verification | `expires_at` column | Checked on lookup: `expires_at > NOW()` |
-| Password reset | `expires_at` column | Checked on lookup: `expires_at > NOW()` |
-
-## Phase 1 Updates Required
-
-- [ ] Update research.md with new security decisions
-- [ ] Update data-model.md: add `failed_login_attempts`, `locked_until` to User; update auth_tokens schema
-- [ ] Update tasks.md with new security tasks
+1. **Phase 1**: Existing auth (US1-US3) + profiles (US4-US6) — already implemented
+2. **Phase 2**: Login History (US7) — new entity, service, handler, endpoints
+3. **Phase 3**: 2FA via Authenticator App (US8) — TOTP setup, verification, backup codes

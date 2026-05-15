@@ -241,6 +241,67 @@ func (s *PostgresStore) DeleteTokensByUserIDAndType(ctx context.Context, userID 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// LoginHistory repository methods
+// ─────────────────────────────────────────────────────────────────────────────
+
+// CreateLoginHistory persists a new login history record.
+func (s *PostgresStore) CreateLoginHistory(ctx context.Context, history *domain.LoginHistory) error {
+	return s.db.WithContext(ctx).Create(history).Error
+}
+
+// LoginHistoriesByUserID retrieves login history for a user with pagination.
+func (s *PostgresStore) LoginHistoriesByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*domain.LoginHistory, error) {
+	var histories []*domain.LoginHistory
+	err := s.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("logged_in_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&histories).Error
+	if err != nil {
+		return nil, err
+	}
+	return histories, nil
+}
+
+// CountLoginHistoriesByUserID counts total login history entries for a user.
+func (s *PostgresStore) CountLoginHistoriesByUserID(ctx context.Context, userID uuid.UUID) (int64, error) {
+	var count int64
+	err := s.db.WithContext(ctx).
+		Model(&domain.LoginHistory{}).
+		Where("user_id = ?", userID).
+		Count(&count).Error
+	return count, err
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TwoFactorSettings repository methods
+// ─────────────────────────────────────────────────────────────────────────────
+
+// CreateTwoFactorSettings persists a new 2FA settings record.
+func (s *PostgresStore) CreateTwoFactorSettings(ctx context.Context, settings *domain.TwoFactorSettings) error {
+	return s.db.WithContext(ctx).Create(settings).Error
+}
+
+// TwoFactorSettingsByUserID retrieves 2FA settings by user ID.
+func (s *PostgresStore) TwoFactorSettingsByUserID(ctx context.Context, userID uuid.UUID) (*domain.TwoFactorSettings, error) {
+	var settings domain.TwoFactorSettings
+	err := s.db.WithContext(ctx).Where("user_id = ?", userID).First(&settings).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, domain.ErrUserNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &settings, nil
+}
+
+// UpdateTwoFactorSettings updates an existing 2FA settings record.
+func (s *PostgresStore) UpdateTwoFactorSettings(ctx context.Context, settings *domain.TwoFactorSettings) error {
+	return s.db.WithContext(ctx).Save(settings).Error
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Repository interface wrappers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -323,12 +384,40 @@ func (r *tokenRepo) DeleteByUserIDAndType(ctx context.Context, uid uuid.UUID, tt
 	return r.DeleteTokensByUserIDAndType(ctx, uid, tt)
 }
 
+// loginHistoryRepo adapts PostgresStore to satisfy repository.LoginHistoryRepository.
+type loginHistoryRepo struct{ *PostgresStore }
+
+func (r *loginHistoryRepo) Create(ctx context.Context, history *domain.LoginHistory) error {
+	return r.CreateLoginHistory(ctx, history)
+}
+func (r *loginHistoryRepo) ByUserID(ctx context.Context, uid uuid.UUID, limit, offset int) ([]*domain.LoginHistory, error) {
+	return r.LoginHistoriesByUserID(ctx, uid, limit, offset)
+}
+func (r *loginHistoryRepo) CountByUserID(ctx context.Context, uid uuid.UUID) (int64, error) {
+	return r.CountLoginHistoriesByUserID(ctx, uid)
+}
+
+// twoFactorSettingsRepo adapts PostgresStore to satisfy repository.TwoFactorSettingsRepository.
+type twoFactorSettingsRepo struct{ *PostgresStore }
+
+func (r *twoFactorSettingsRepo) Create(ctx context.Context, settings *domain.TwoFactorSettings) error {
+	return r.CreateTwoFactorSettings(ctx, settings)
+}
+func (r *twoFactorSettingsRepo) ByUserID(ctx context.Context, uid uuid.UUID) (*domain.TwoFactorSettings, error) {
+	return r.TwoFactorSettingsByUserID(ctx, uid)
+}
+func (r *twoFactorSettingsRepo) Update(ctx context.Context, settings *domain.TwoFactorSettings) error {
+	return r.UpdateTwoFactorSettings(ctx, settings)
+}
+
 // Compile-time interface checks.
 var (
-	_ repository.UserRepository   = (*userRepo)(nil)
-	_ repository.SessionRepository = (*sessionRepo)(nil)
-	_ repository.ProfileRepository = (*profileRepo)(nil)
-	_ repository.TokenRepository   = (*tokenRepo)(nil)
+	_ repository.UserRepository            = (*userRepo)(nil)
+	_ repository.SessionRepository          = (*sessionRepo)(nil)
+	_ repository.ProfileRepository          = (*profileRepo)(nil)
+	_ repository.TokenRepository            = (*tokenRepo)(nil)
+	_ repository.LoginHistoryRepository     = (*loginHistoryRepo)(nil)
+	_ repository.TwoFactorSettingsRepository = (*twoFactorSettingsRepo)(nil)
 )
 
 // UserRepository returns a repository.UserRepository backed by PostgresStore.
@@ -343,6 +432,12 @@ func (s *PostgresStore) ProfileRepository() repository.ProfileRepository { retur
 // TokenRepository returns a repository.TokenRepository backed by PostgresStore.
 func (s *PostgresStore) TokenRepository() repository.TokenRepository { return &tokenRepo{s} }
 
+// LoginHistoryRepository returns a repository.LoginHistoryRepository backed by PostgresStore.
+func (s *PostgresStore) LoginHistoryRepository() repository.LoginHistoryRepository { return &loginHistoryRepo{s} }
+
+// TwoFactorSettingsRepository returns a repository.TwoFactorSettingsRepository backed by PostgresStore.
+func (s *PostgresStore) TwoFactorSettingsRepository() repository.TwoFactorSettingsRepository { return &twoFactorSettingsRepo{s} }
+
 // DB returns the underlying GORM DB instance for advanced operations.
 func (s *PostgresStore) DB() *gorm.DB {
 	return s.db
@@ -350,7 +445,14 @@ func (s *PostgresStore) DB() *gorm.DB {
 
 // AutoMigrate runs GORM automigration for all domain models.
 func (s *PostgresStore) AutoMigrate() error {
-	return s.db.AutoMigrate(&domain.User{}, &domain.Session{}, &domain.Profile{}, &domain.AuthToken{})
+	return s.db.AutoMigrate(
+		&domain.User{},
+		&domain.Session{},
+		&domain.Profile{},
+		&domain.AuthToken{},
+		&domain.LoginHistory{},
+		&domain.TwoFactorSettings{},
+	)
 }
 
 // Transaction executes a function within a database transaction.

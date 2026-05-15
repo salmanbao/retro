@@ -61,12 +61,45 @@
 
 **Expiry enforcement**: Token is valid only if `expires_at > NOW() AND used_at IS NULL`. Expired or already-used tokens are rejected.
 
+## Entity: LoginHistory
+
+| Field | Type | Constraints |
+|-------|------|-------------|
+| id | UUID | PK |
+| user_id | UUID | FK → users.id, NOT NULL |
+| ip_address | VARCHAR(45) | NOT NULL |
+| user_agent | VARCHAR(512) | NOT NULL |
+| device_fingerprint | VARCHAR(255) | NOT NULL |
+| city | VARCHAR(100) | NULLABLE |
+| country | VARCHAR(100) | NULLABLE |
+| latitude | DECIMAL(9,6) | NULLABLE |
+| longitude | DECIMAL(9,6) | NULLABLE |
+| logged_in_at | TIMESTAMPTZ | NOT NULL |
+
+**Note**: `device_fingerprint` is a hash of browser characteristics (user agent, accept language, screen, timezone) — human-readable identifier, not cryptographic. Geolocation derived from IP address using MaxMind GeoLite2 or similar.
+
+## Entity: TwoFactorSettings
+
+| Field | Type | Constraints |
+|-------|------|-------------|
+| id | UUID | PK |
+| user_id | UUID | FK → users.id, UNIQUE, NOT NULL |
+| totp_secret_encrypted | VARCHAR(512) | NOT NULL |
+| enabled | BOOLEAN | DEFAULT FALSE |
+| backup_codes_hash | JSONB | NOT NULL |
+| created_at | TIMESTAMPTZ | NOT NULL |
+| updated_at | TIMESTAMPTZ | NOT NULL |
+
+**Note**: `totp_secret_encrypted` is AES-256-GCM encrypted. `backup_codes_hash` is an array of bcrypt hashes, one per backup code. Each backup code can only be used once — marked used on consumption.
+
 ## Relationships
 
 - User 1:N Session (user has many sessions)
 - User 1:N Profile (user has many profiles)
 - Profile 1:1 Session (session has optional active profile — foreign key in sessions table)
 - User 1:N AuthToken (one-time tokens for email verification and password reset)
+- User 1:N LoginHistory (user has many login history entries)
+- User 1:1 TwoFactorSettings (user has optional 2FA settings)
 
 ## Validation Rules
 

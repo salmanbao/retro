@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"viralforge/backend/src/adapter"
 	"viralforge/backend/src/domain"
@@ -332,4 +333,9 @@ func RequireBrandProfile(profile *domain.Profile) error {
 		return domain.ErrUnauthorized
 	}
 	return nil
+}
+
+// GetPendingSession retrieves the most recent sessions for a user (created during 2FA login flow).
+func (s *AuthService) GetPendingSession(ctx context.Context, userID uuid.UUID) ([]*domain.Session, error) {
+	return s.sessionRepo.ByUserID(ctx, userID)
 }
