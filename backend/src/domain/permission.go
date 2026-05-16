@@ -8,10 +8,10 @@ import (
 type PermissionDomain string
 
 const (
-	DomainBrand     PermissionDomain = "Brand"
-	DomainEditor    PermissionDomain = "Editor"
+	DomainBrand      PermissionDomain = "Brand"
+	DomainEditor     PermissionDomain = "Editor"
 	DomainInfluencer PermissionDomain = "Influencer"
-	DomainPlatform  PermissionDomain = "Platform"
+	DomainPlatform   PermissionDomain = "Platform"
 )
 
 // Permission represents a system capability in dot-notation format.
