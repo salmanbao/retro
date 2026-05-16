@@ -526,18 +526,168 @@ func (r *profileRoleRepo) DeleteByRoleID(ctx context.Context, roleID uuid.UUID) 
 	return r.DB().Delete(&domain.ProfileRole{}, "role_id = ?", roleID).Error
 }
 
+// profileEnrichmentRepo adapts PostgresStore to satisfy repository.ProfileEnrichmentRepository.
+type profileEnrichmentRepo struct{ *PostgresStore }
+
+func (r *profileEnrichmentRepo) Create(ctx context.Context, enrichment *domain.ProfileEnrichment) error {
+	return r.DB().Create(enrichment).Error
+}
+func (r *profileEnrichmentRepo) ByProfileID(ctx context.Context, profileID uuid.UUID) (*domain.ProfileEnrichment, error) {
+	var enrichment domain.ProfileEnrichment
+	if err := r.DB().Where("profile_id = ?", profileID).First(&enrichment).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrProfileNotFound
+		}
+		return nil, err
+	}
+	return &enrichment, nil
+}
+func (r *profileEnrichmentRepo) Update(ctx context.Context, enrichment *domain.ProfileEnrichment) error {
+	return r.DB().Save(enrichment).Error
+}
+
+// portfolioItemRepo adapts PostgresStore to satisfy repository.PortfolioItemRepository.
+type portfolioItemRepo struct{ *PostgresStore }
+
+func (r *portfolioItemRepo) Create(ctx context.Context, item *domain.PortfolioItem) error {
+	return r.DB().Create(item).Error
+}
+func (r *portfolioItemRepo) ByID(ctx context.Context, id uuid.UUID) (*domain.PortfolioItem, error) {
+	var item domain.PortfolioItem
+	if err := r.DB().Where("id = ? AND deleted_at IS NULL", id).First(&item).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrPortfolioItemNotFound
+		}
+		return nil, err
+	}
+	return &item, nil
+}
+func (r *portfolioItemRepo) ByProfileID(ctx context.Context, profileID uuid.UUID, limit, offset int) ([]*domain.PortfolioItem, error) {
+	var items []*domain.PortfolioItem
+	if err := r.DB().Where("profile_id = ? AND deleted_at IS NULL", profileID).Order("display_order ASC, created_at ASC").Limit(limit).Offset(offset).Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+func (r *portfolioItemRepo) Update(ctx context.Context, item *domain.PortfolioItem) error {
+	return r.DB().Save(item).Error
+}
+func (r *portfolioItemRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	result := r.DB().Model(&domain.PortfolioItem{}).Where("id = ?", id).Update("deleted_at", time.Now())
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrPortfolioItemNotFound
+	}
+	return nil
+}
+func (r *portfolioItemRepo) CountByProfileID(ctx context.Context, profileID uuid.UUID) (int64, error) {
+	var count int64
+	if err := r.DB().Model(&domain.PortfolioItem{}).Where("profile_id = ? AND deleted_at IS NULL", profileID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// audienceDataRepo adapts PostgresStore to satisfy repository.AudienceDataRepository.
+type audienceDataRepo struct{ *PostgresStore }
+
+func (r *audienceDataRepo) Create(ctx context.Context, data *domain.AudienceData) error {
+	return r.DB().Create(data).Error
+}
+func (r *audienceDataRepo) ByProfileID(ctx context.Context, profileID uuid.UUID) (*domain.AudienceData, error) {
+	var data domain.AudienceData
+	if err := r.DB().Where("profile_id = ?", profileID).First(&data).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrProfileNotFound
+		}
+		return nil, err
+	}
+	return &data, nil
+}
+func (r *audienceDataRepo) Update(ctx context.Context, data *domain.AudienceData) error {
+	return r.DB().Save(data).Error
+}
+
+// followerVerificationRepo adapts PostgresStore to satisfy repository.FollowerVerificationRepository.
+type followerVerificationRepo struct{ *PostgresStore }
+
+func (r *followerVerificationRepo) Create(ctx context.Context, verification *domain.FollowerVerification) error {
+	return r.DB().Create(verification).Error
+}
+func (r *followerVerificationRepo) ByProfileID(ctx context.Context, profileID uuid.UUID) (*domain.FollowerVerification, error) {
+	var verification domain.FollowerVerification
+	if err := r.DB().Where("profile_id = ?", profileID).First(&verification).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrProfileNotFound
+		}
+		return nil, err
+	}
+	return &verification, nil
+}
+func (r *followerVerificationRepo) Update(ctx context.Context, verification *domain.FollowerVerification) error {
+	return r.DB().Save(verification).Error
+}
+
+// payoutPreferencesRepo adapts PostgresStore to satisfy repository.PayoutPreferencesRepository.
+type payoutPreferencesRepo struct{ *PostgresStore }
+
+func (r *payoutPreferencesRepo) Create(ctx context.Context, prefs *domain.PayoutPreferences) error {
+	return r.DB().Create(prefs).Error
+}
+func (r *payoutPreferencesRepo) ByProfileID(ctx context.Context, profileID uuid.UUID) (*domain.PayoutPreferences, error) {
+	var prefs domain.PayoutPreferences
+	if err := r.DB().Where("profile_id = ?", profileID).First(&prefs).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrProfileNotFound
+		}
+		return nil, err
+	}
+	return &prefs, nil
+}
+func (r *payoutPreferencesRepo) Update(ctx context.Context, prefs *domain.PayoutPreferences) error {
+	return r.DB().Save(prefs).Error
+}
+
+// kycStatusRepo adapts PostgresStore to satisfy repository.KYCStatusRepository.
+type kycStatusRepo struct{ *PostgresStore }
+
+func (r *kycStatusRepo) Create(ctx context.Context, status *domain.KYCStatus) error {
+	return r.DB().Create(status).Error
+}
+func (r *kycStatusRepo) ByProfileID(ctx context.Context, profileID uuid.UUID) (*domain.KYCStatus, error) {
+	var status domain.KYCStatus
+	if err := r.DB().Where("profile_id = ?", profileID).First(&status).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrProfileNotFound
+		}
+		return nil, err
+	}
+	return &status, nil
+}
+func (r *kycStatusRepo) Update(ctx context.Context, status *domain.KYCStatus) error {
+	return r.DB().Save(status).Error
+}
+
 // Compile-time interface checks.
 var (
-	_ repository.UserRepository            = (*userRepo)(nil)
-	_ repository.SessionRepository          = (*sessionRepo)(nil)
-	_ repository.ProfileRepository          = (*profileRepo)(nil)
-	_ repository.TokenRepository            = (*tokenRepo)(nil)
-	_ repository.LoginHistoryRepository     = (*loginHistoryRepo)(nil)
-	_ repository.TwoFactorSettingsRepository = (*twoFactorSettingsRepo)(nil)
-	_ repository.PermissionRepository        = (*permissionRepo)(nil)
-	_ repository.RoleRepository              = (*roleRepo)(nil)
-	_ repository.RolePermissionRepository    = (*rolePermissionRepo)(nil)
-	_ repository.ProfileRoleRepository       = (*profileRoleRepo)(nil)
+	_ repository.UserRepository                 = (*userRepo)(nil)
+	_ repository.SessionRepository              = (*sessionRepo)(nil)
+	_ repository.ProfileRepository              = (*profileRepo)(nil)
+	_ repository.TokenRepository                = (*tokenRepo)(nil)
+	_ repository.LoginHistoryRepository         = (*loginHistoryRepo)(nil)
+	_ repository.TwoFactorSettingsRepository    = (*twoFactorSettingsRepo)(nil)
+	_ repository.PermissionRepository           = (*permissionRepo)(nil)
+	_ repository.RoleRepository                 = (*roleRepo)(nil)
+	_ repository.RolePermissionRepository       = (*rolePermissionRepo)(nil)
+	_ repository.ProfileRoleRepository          = (*profileRoleRepo)(nil)
+	_ repository.ProfileEnrichmentRepository    = (*profileEnrichmentRepo)(nil)
+	_ repository.PortfolioItemRepository        = (*portfolioItemRepo)(nil)
+	_ repository.AudienceDataRepository         = (*audienceDataRepo)(nil)
+	_ repository.FollowerVerificationRepository = (*followerVerificationRepo)(nil)
+	_ repository.PayoutPreferencesRepository    = (*payoutPreferencesRepo)(nil)
+	_ repository.KYCStatusRepository            = (*kycStatusRepo)(nil)
 )
 
 // UserRepository returns a repository.UserRepository backed by PostgresStore.
@@ -553,22 +703,62 @@ func (s *PostgresStore) ProfileRepository() repository.ProfileRepository { retur
 func (s *PostgresStore) TokenRepository() repository.TokenRepository { return &tokenRepo{s} }
 
 // LoginHistoryRepository returns a repository.LoginHistoryRepository backed by PostgresStore.
-func (s *PostgresStore) LoginHistoryRepository() repository.LoginHistoryRepository { return &loginHistoryRepo{s} }
+func (s *PostgresStore) LoginHistoryRepository() repository.LoginHistoryRepository {
+	return &loginHistoryRepo{s}
+}
 
 // TwoFactorSettingsRepository returns a repository.TwoFactorSettingsRepository backed by PostgresStore.
-func (s *PostgresStore) TwoFactorSettingsRepository() repository.TwoFactorSettingsRepository { return &twoFactorSettingsRepo{s} }
+func (s *PostgresStore) TwoFactorSettingsRepository() repository.TwoFactorSettingsRepository {
+	return &twoFactorSettingsRepo{s}
+}
 
 // PermissionRepository returns a repository.PermissionRepository backed by PostgresStore.
-func (s *PostgresStore) PermissionRepository() repository.PermissionRepository { return &permissionRepo{s} }
+func (s *PostgresStore) PermissionRepository() repository.PermissionRepository {
+	return &permissionRepo{s}
+}
 
 // RoleRepository returns a repository.RoleRepository backed by PostgresStore.
 func (s *PostgresStore) RoleRepository() repository.RoleRepository { return &roleRepo{s} }
 
 // RolePermissionRepository returns a repository.RolePermissionRepository backed by PostgresStore.
-func (s *PostgresStore) RolePermissionRepository() repository.RolePermissionRepository { return &rolePermissionRepo{s} }
+func (s *PostgresStore) RolePermissionRepository() repository.RolePermissionRepository {
+	return &rolePermissionRepo{s}
+}
 
 // ProfileRoleRepository returns a repository.ProfileRoleRepository backed by PostgresStore.
-func (s *PostgresStore) ProfileRoleRepository() repository.ProfileRoleRepository { return &profileRoleRepo{s} }
+func (s *PostgresStore) ProfileRoleRepository() repository.ProfileRoleRepository {
+	return &profileRoleRepo{s}
+}
+
+// ProfileEnrichmentRepository returns a repository.ProfileEnrichmentRepository backed by PostgresStore.
+func (s *PostgresStore) ProfileEnrichmentRepository() repository.ProfileEnrichmentRepository {
+	return &profileEnrichmentRepo{s}
+}
+
+// PortfolioItemRepository returns a repository.PortfolioItemRepository backed by PostgresStore.
+func (s *PostgresStore) PortfolioItemRepository() repository.PortfolioItemRepository {
+	return &portfolioItemRepo{s}
+}
+
+// AudienceDataRepository returns a repository.AudienceDataRepository backed by PostgresStore.
+func (s *PostgresStore) AudienceDataRepository() repository.AudienceDataRepository {
+	return &audienceDataRepo{s}
+}
+
+// FollowerVerificationRepository returns a repository.FollowerVerificationRepository backed by PostgresStore.
+func (s *PostgresStore) FollowerVerificationRepository() repository.FollowerVerificationRepository {
+	return &followerVerificationRepo{s}
+}
+
+// PayoutPreferencesRepository returns a repository.PayoutPreferencesRepository backed by PostgresStore.
+func (s *PostgresStore) PayoutPreferencesRepository() repository.PayoutPreferencesRepository {
+	return &payoutPreferencesRepo{s}
+}
+
+// KYCStatusRepository returns a repository.KYCStatusRepository backed by PostgresStore.
+func (s *PostgresStore) KYCStatusRepository() repository.KYCStatusRepository {
+	return &kycStatusRepo{s}
+}
 
 // DB returns the underlying GORM DB instance for advanced operations.
 func (s *PostgresStore) DB() *gorm.DB {
@@ -588,6 +778,12 @@ func (s *PostgresStore) AutoMigrate() error {
 		&domain.Role{},
 		&domain.RolePermission{},
 		&domain.ProfileRole{},
+		&domain.ProfileEnrichment{},
+		&domain.PortfolioItem{},
+		&domain.AudienceData{},
+		&domain.FollowerVerification{},
+		&domain.PayoutPreferences{},
+		&domain.KYCStatus{},
 	)
 }
 
