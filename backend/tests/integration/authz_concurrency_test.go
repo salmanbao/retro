@@ -248,7 +248,7 @@ func TestT064_ConcurrentAuthorizationRequests(t *testing.T) {
 	profileRoleRepo.profileRoles[profileBID] = []*domain.ProfileRole{{ProfileID: profileBID, RoleID: roleBID}}
 
 	// Create service using real service constructor
-	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo)
+	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo, nil)
 
 	// Test concurrent permission checks
 	const numGoroutines = 100

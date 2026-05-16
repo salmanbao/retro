@@ -164,7 +164,7 @@ func setupAuthzService(t *testing.T) (*service.AuthorizationService, *mockPermis
 	rolePermRepo := &mockRolePermissionRepository{rolePerms: make(map[uuid.UUID][]*domain.RolePermission)}
 	profileRoleRepo := &mockProfileRoleRepository{profileRoles: make(map[uuid.UUID][]*domain.ProfileRole)}
 
-	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo)
+	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo, nil)
 	return svc, permRepo, roleRepo, rolePermRepo, profileRoleRepo
 }
 

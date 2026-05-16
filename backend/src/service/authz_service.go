@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"strings"
 
 	"github.com/google/uuid"
@@ -15,6 +17,7 @@ type AuthorizationService struct {
 	roleRepo        repository.RoleRepository
 	rolePermRepo    repository.RolePermissionRepository
 	profileRoleRepo repository.ProfileRoleRepository
+	logger         *slog.Logger
 }
 
 // NewAuthorizationService creates a new AuthorizationService.
@@ -23,12 +26,17 @@ func NewAuthorizationService(
 	roleRepo repository.RoleRepository,
 	rolePermRepo repository.RolePermissionRepository,
 	profileRoleRepo repository.ProfileRoleRepository,
+	logger *slog.Logger,
 ) *AuthorizationService {
+	if logger == nil {
+		logger = slog.New(slog.NewJSONHandler(io.Discard, &slog.HandlerOptions{}))
+	}
 	return &AuthorizationService{
 		permissionRepo:  permissionRepo,
 		roleRepo:        roleRepo,
 		rolePermRepo:    rolePermRepo,
 		profileRoleRepo: profileRoleRepo,
+		logger:          logger,
 	}
 }
 
@@ -39,32 +47,65 @@ func (s *AuthorizationService) HasPermission(ctx context.Context, profileID uuid
 	// Get all roles assigned to this profile
 	profileRoles, err := s.profileRoleRepo.ByProfileID(ctx, profileID)
 	if err != nil {
+		s.logger.Info("authorization denied",
+			"profile_id", profileID.String(),
+			"permission", permission,
+			"reason", "profile_roles_fetch_error",
+			"error", err.Error(),
+			"result", "denied")
 		return false, err
 	}
 
 	// Collect all effective permissions for this profile
 	effectivePerms, err := s.collectEffectivePermissions(ctx, profileRoles)
 	if err != nil {
+		s.logger.Info("authorization denied",
+			"profile_id", profileID.String(),
+			"permission", permission,
+			"reason", "effective_permissions_fetch_error",
+			"error", err.Error(),
+			"result", "denied")
 		return false, err
 	}
 
 	// Check exact match
 	if effectivePerms[permission] {
+		s.logger.Info("authorization allowed",
+			"profile_id", profileID.String(),
+			"permission", permission,
+			"match_type", "exact",
+			"result", "allowed")
 		return true, nil
 	}
 
 	// Check wildcard matches
 	for perm := range effectivePerms {
 		if s.permissionMatchesWildcard(perm, permission) {
+			s.logger.Info("authorization allowed",
+				"profile_id", profileID.String(),
+				"permission", permission,
+				"wildcard", perm,
+				"match_type", "wildcard",
+				"result", "allowed")
 			return true, nil
 		}
 	}
 
 	// Special case: platform_admin with "*" has all permissions
 	if effectivePerms["*"] {
+		s.logger.Info("authorization allowed",
+			"profile_id", profileID.String(),
+			"permission", permission,
+			"match_type", "admin_wildcard",
+			"result", "allowed")
 		return true, nil
 	}
 
+	s.logger.Info("authorization denied",
+		"profile_id", profileID.String(),
+		"permission", permission,
+		"reason", "no_matching_permission",
+		"result", "denied")
 	return false, nil
 }
 

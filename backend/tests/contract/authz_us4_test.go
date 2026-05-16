@@ -169,7 +169,7 @@ func setupUS4Handler() (*handler.AuthzHandler, *mockUS4RoleRepo, *mockUS4RolePer
 	rolePermRepo := &mockUS4RolePermRepo{rolePerms: make(map[uuid.UUID][]*domain.RolePermission)}
 	profileRoleRepo := &mockUS4ProfileRoleRepo{profileRoles: make(map[uuid.UUID][]*domain.ProfileRole)}
 
-	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo)
+	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo, nil)
 	h := handler.NewAuthzHandler(svc)
 	return h, roleRepo, rolePermRepo
 }

@@ -167,7 +167,7 @@ func setupAuthzMiddleware() (*middleware.AuthzMiddleware, *mockAuthzMWProfileRol
 	rolePermRepo := &mockAuthzMWRolePermRepo{rolePerms: make(map[uuid.UUID][]*domain.RolePermission)}
 	profileRoleRepo := &mockAuthzMWProfileRoleRepo{profileRoles: make(map[uuid.UUID][]*domain.ProfileRole)}
 
-	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo)
+	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo, nil)
 	authzMw := middleware.NewAuthzMiddleware(svc)
 	return authzMw, profileRoleRepo
 }

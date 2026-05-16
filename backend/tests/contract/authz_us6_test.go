@@ -170,7 +170,7 @@ func setupUS6Handler() (*handler.AuthzHandler, *mockUS6RoleRepo, *mockUS6RolePer
 	rolePermRepo := &mockUS6RolePermRepo{rolePerms: make(map[uuid.UUID][]*domain.RolePermission)}
 	profileRoleRepo := &mockUS6ProfileRoleRepo{profileRoles: make(map[uuid.UUID][]*domain.ProfileRole)}
 
-	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo)
+	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo, nil)
 	h := handler.NewAuthzHandler(svc)
 	return h, roleRepo, rolePermRepo
 }
@@ -181,7 +181,7 @@ func setupUS6HandlerFull() (*handler.AuthzHandler, *mockUS6RoleRepo, *mockUS6Rol
 	rolePermRepo := &mockUS6RolePermRepo{rolePerms: make(map[uuid.UUID][]*domain.RolePermission)}
 	profileRoleRepo := &mockUS6ProfileRoleRepo{profileRoles: make(map[uuid.UUID][]*domain.ProfileRole)}
 
-	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo)
+	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo, nil)
 	h := handler.NewAuthzHandler(svc)
 	return h, roleRepo, rolePermRepo, permRepo
 }
@@ -239,7 +239,7 @@ func TestT049_GET_ProfilePermissions_ResponseFormat(t *testing.T) {
 	profileRoleRepo.profileRoles[profileID] = []*domain.ProfileRole{profileRole}
 
 	// Create a new service with the profile role repo (recreate to use our repos)
-	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo)
+	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepo, profileRoleRepo, nil)
 	h = handler.NewAuthzHandler(svc)
 
 	router = chi.NewRouter()
@@ -361,7 +361,7 @@ func TestT050_GET_ProfilePermissions_RoleInheritance(t *testing.T) {
 	profileRoleRepo := &mockUS6ProfileRoleRepo{profileRoles: make(map[uuid.UUID][]*domain.ProfileRole)}
 	profileRoleRepo.profileRoles[profileID] = []*domain.ProfileRole{profileRole}
 
-	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepoActual, profileRoleRepo)
+	svc := service.NewAuthorizationService(permRepo, roleRepo, rolePermRepoActual, profileRoleRepo, nil)
 	h = handler.NewAuthzHandler(svc)
 
 	router = chi.NewRouter()
