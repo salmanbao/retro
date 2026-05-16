@@ -18,9 +18,9 @@ const timeout = 30 * time.Second
 // NewServer creates and configures the HTTP server.
 func NewServer(cfg *Config, db *adapter.PostgresStore, email adapter.EmailService) *Server {
 	return &Server{
-		cfg:   cfg,
-		store: db,
-		email: email,
+		cfg:    cfg,
+		store:  db,
+		email:  email,
 		router: chi.NewMux(),
 	}
 }
@@ -70,6 +70,36 @@ func (s *Server) Setup() {
 		s.store.UserRepository(),
 	)
 
+	enrichmentSvc := service.NewProfileEnrichmentService(
+		s.store.ProfileEnrichmentRepository(),
+		s.store.ProfileRepository(),
+	)
+
+	portfolioSvc := service.NewPortfolioService(
+		s.store.PortfolioItemRepository(),
+		s.store.ProfileRepository(),
+	)
+
+	audienceSvc := service.NewAudienceService(
+		s.store.AudienceDataRepository(),
+		s.store.ProfileRepository(),
+	)
+
+	verificationSvc := service.NewVerificationService(
+		s.store.FollowerVerificationRepository(),
+		s.store.ProfileRepository(),
+	)
+
+	kycSvc := service.NewKYCService(
+		s.store.KYCStatusRepository(),
+		s.store.ProfileRepository(),
+	)
+
+	payoutSvc := service.NewPayoutService(
+		s.store.PayoutPreferencesRepository(),
+		s.store.ProfileRepository(),
+	)
+
 	sessionSvc := service.NewSessionService(
 		s.store.SessionRepository(),
 		s.store.ProfileRepository(),
@@ -79,10 +109,19 @@ func (s *Server) Setup() {
 	authHandler := handler.NewAuthHandler(authSvc, loginHistorySvc, twoFactorSvc)
 	sessionHandler := handler.NewSessionHandler(sessionSvc)
 	profileHandler := handler.NewProfileHandler(profileSvc)
+	profileEnrichmentHandler := handler.NewProfileEnrichmentHandler(enrichmentSvc)
+	portfolioHandler := handler.NewPortfolioHandler(portfolioSvc)
+	audienceHandler := handler.NewAudienceHandler(audienceSvc)
+	verificationHandler := handler.NewVerificationHandler(verificationSvc)
+	kycHandler := handler.NewKYCHandler(kycSvc)
+	payoutHandler := handler.NewPayoutHandler(payoutSvc)
 	twoFactorHandler := handler.NewTwoFactorHandler(twoFactorSvc, authSvc)
 
 	// Create middleware
 	authMw := authMiddleware.NewAuthMiddleware(s.store.SessionRepository(), s.store.UserRepository())
+	ownershipMw := authMiddleware.NewOwnershipMiddleware(s.store.ProfileRepository())
+	adminMw := authMiddleware.NewAdminMiddleware(s.store.UserRepository())
+	profileTypeMw := authMiddleware.NewProfileTypeMiddleware(s.store.ProfileRepository())
 
 	s.router.Route("/api/v1/auth", func(r chi.Router) {
 		authHandler.RegisterRoutes(r)
@@ -96,6 +135,47 @@ func (s *Server) Setup() {
 	s.router.Route("/api/v1/profiles", func(r chi.Router) {
 		r.Use(authMw.Authenticate)
 		profileHandler.RegisterRoutes(r)
+		r.Route("/{id}/details", func(r chi.Router) {
+			r.Use(ownershipMw.RequireOwnership)
+			r.Get("/", profileEnrichmentHandler.GetDetails)
+			r.Patch("/", profileEnrichmentHandler.UpdateDetails)
+		})
+		r.Route("/{id}/portfolio", func(r chi.Router) {
+			r.Use(ownershipMw.RequireOwnership)
+			r.Use(profileTypeMw.RequireEditor) // Editor profile required
+			r.Get("/", portfolioHandler.GetPortfolio)
+			r.Post("/", portfolioHandler.CreatePortfolioItem)
+			r.Patch("/{itemId}", portfolioHandler.UpdatePortfolioItem)
+			r.Delete("/{itemId}", portfolioHandler.DeletePortfolioItem)
+		})
+		r.Route("/{id}/audience", func(r chi.Router) {
+			r.Use(ownershipMw.RequireOwnership)
+			r.Use(profileTypeMw.RequireInfluencer) // Influencer profile required
+			r.Get("/", audienceHandler.GetAudience)
+			r.Put("/", audienceHandler.UpdateAudience)
+		})
+		r.Route("/{id}/verification", func(r chi.Router) {
+			r.Use(ownershipMw.RequireOwnership)
+			r.Use(profileTypeMw.RequireInfluencer) // Influencer profile required
+			r.Get("/", verificationHandler.GetVerification)
+			r.Post("/", verificationHandler.SubmitVerification)
+		})
+		r.Route("/{id}/kyc", func(r chi.Router) {
+			r.Use(ownershipMw.RequireOwnership)
+			r.Get("/", kycHandler.GetKYCStatus)
+		})
+		r.Route("/{id}/payout", func(r chi.Router) {
+			r.Use(ownershipMw.RequireOwnership)
+			r.Get("/", payoutHandler.GetPayoutPreferences)
+			r.Put("/", payoutHandler.UpdatePayoutPreferences)
+		})
+	})
+	// Admin routes
+	s.router.Route("/api/v1/admin/profiles", func(r chi.Router) {
+		r.Use(authMw.Authenticate)
+		r.Use(adminMw.RequireAdmin) // Admin access required
+		r.Put("/{profileId}/verification/review", verificationHandler.AdminReviewVerification)
+		r.Put("/{profileId}/kyc", kycHandler.AdminUpdateKYC)
 	})
 	// Protected session routes
 	s.router.Route("/api/v1/sessions", func(r chi.Router) {

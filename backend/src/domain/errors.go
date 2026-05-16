@@ -84,4 +84,21 @@ var (
 
 	// ErrWildcardNotSupported indicates wildcard permissions are not yet supported.
 	ErrWildcardNotSupported = errors.New("wildcard permissions not yet implemented")
+
+	// Profile Enrichment errors
+	ErrInvalidLanguageCode       = errors.New("invalid ISO 639-1 language code")
+	ErrInvalidTimezone           = errors.New("invalid IANA timezone identifier")
+	ErrInvalidCountryCode        = errors.New("invalid ISO 3166-1 alpha-2 country code")
+	ErrInvalidCurrencyCode       = errors.New("invalid ISO 4217 currency code")
+	ErrInvalidSocialLinks        = errors.New("invalid social links format")
+	ErrSocialLinksTooLarge       = errors.New("social links exceeds 5KB limit")
+	ErrDemographicsTooLarge      = errors.New("audience demographics exceeds 10KB limit")
+	ErrEvidenceURLsTooLarge      = errors.New("evidence URLs exceed 50KB limit")
+	ErrMaxPortfolioItems         = errors.New("maximum 50 portfolio items per profile")
+	ErrPortfolioItemNotFound     = errors.New("portfolio item not found")
+	ErrPortfolioNotEditor        = errors.New("portfolio operations require Editor profile type")
+	ErrAudienceNotInfluencer     = errors.New("audience data requires Influencer profile type")
+	ErrVerificationNotInfluencer = errors.New("verification requires Influencer profile type")
+	ErrPayoutNotOwner            = errors.New("payout preferences can only be accessed by owner")
+	ErrKYCUpdateNotAdmin         = errors.New("KYC status can only be updated by admin")
 )
