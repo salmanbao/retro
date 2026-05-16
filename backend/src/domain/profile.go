@@ -25,7 +25,7 @@ type Profile struct {
 	Details   json.RawMessage `gorm:"type:jsonb" json:"details"`
 	CreatedAt time.Time       `gorm:"type:timestamptz;autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time       `gorm:"type:timestamptz;autoUpdateTime" json:"updated_at"`
-	DeletedAt *time.Time       `gorm:"type:timestamptz;index" json:"deleted_at,omitempty"`
+	DeletedAt *time.Time      `gorm:"type:timestamptz;index" json:"deleted_at,omitempty"`
 }
 
 // TableName sets the table name for Profile.
