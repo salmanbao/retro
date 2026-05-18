@@ -54,8 +54,8 @@ func TestAutoComplete_ProfileEnrichmentComplete(t *testing.T) {
 
 	// Simulate profile data with bio AND avatar (all-or-nothing)
 	profileData := map[string]interface{}{
-		"bio":     "This is my bio",
-		"avatar":  "https://example.com/avatar.jpg",
+		"bio":    "This is my bio",
+		"avatar": "https://example.com/avatar.jpg",
 	}
 
 	// Get current step progress
@@ -233,7 +233,7 @@ func TestAutoComplete_SocialLinks(t *testing.T) {
 	// Simulate profile data with social links
 	profileData := map[string]interface{}{
 		"social_links": map[string]interface{}{
-			"twitter": "https://twitter.com/user",
+			"twitter":   "https://twitter.com/user",
 			"instagram": "https://instagram.com/user",
 		},
 	}

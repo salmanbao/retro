@@ -9,24 +9,24 @@ import (
 
 // ActivationStatus constants
 const (
-	ActivationStatusNotStarted   = "not_started"
-	ActivationStatusOnboarding   = "onboarding"
+	ActivationStatusNotStarted    = "not_started"
+	ActivationStatusOnboarding    = "onboarding"
 	ActivationStatusPendingReview = "pending_review"
-	ActivationStatusActivated    = "activated"
+	ActivationStatusActivated     = "activated"
 )
 
 // OnboardingProgress tracks onboarding progress for a specific profile
 type OnboardingProgress struct {
-	ID               uuid.UUID  `gorm:"type:uuid;primary_key" json:"id"`
-	ProfileID        uuid.UUID  `gorm:"type:uuid;uniqueIndex" json:"profile_id"`
-	ProfileType      string     `gorm:"type:varchar(20)" json:"profile_type"`
-	TemplateID       uuid.UUID  `gorm:"type:uuid" json:"template_id"`
-	TemplateVersion  string     `gorm:"type:varchar(10)" json:"template_version"`
-	ActivationStatus string     `gorm:"type:varchar(20);index" json:"activation_status"`
-	StartedAt        *time.Time `json:"started_at,omitempty"`
-	LastActivityAt   *time.Time `json:"last_activity_at,omitempty"`
-	CreatedAt        time.Time `json:"created_at"`
-	UpdatedAt        time.Time `json:"updated_at"`
+	ID               uuid.UUID      `gorm:"type:uuid;primary_key" json:"id"`
+	ProfileID        uuid.UUID      `gorm:"type:uuid;uniqueIndex" json:"profile_id"`
+	ProfileType      string         `gorm:"type:varchar(20)" json:"profile_type"`
+	TemplateID       uuid.UUID      `gorm:"type:uuid" json:"template_id"`
+	TemplateVersion  string         `gorm:"type:varchar(10)" json:"template_version"`
+	ActivationStatus string         `gorm:"type:varchar(20);index" json:"activation_status"`
+	StartedAt        *time.Time     `json:"started_at,omitempty"`
+	LastActivityAt   *time.Time     `json:"last_activity_at,omitempty"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
 	StepProgresses   []StepProgress `gorm:"foreignKey:OnboardingProgressID" json:"step_progresses,omitempty"`
 }
 

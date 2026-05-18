@@ -203,17 +203,17 @@ func TestProfileEnrichmentDomain(t *testing.T) {
 	now := time.Now()
 
 	enrichment := &domain.ProfileEnrichment{
-		ID:        uuid.New(),
-		ProfileID: profileID,
-		Bio:       "Test bio",
-		AvatarURL: "https://example.com/avatar.jpg",
-		CoverURL:  "https://example.com/cover.jpg",
+		ID:         uuid.New(),
+		ProfileID:  profileID,
+		Bio:        "Test bio",
+		AvatarURL:  "https://example.com/avatar.jpg",
+		CoverURL:   "https://example.com/cover.jpg",
 		WebsiteURL: "https://example.com",
-		Location:  "New York, NY",
-		Languages: []string{"en", "es"},
-		Timezone:  "America/New_York",
-		CreatedAt: now,
-		UpdatedAt: now,
+		Location:   "New York, NY",
+		Languages:  []string{"en", "es"},
+		Timezone:   "America/New_York",
+		CreatedAt:  now,
+		UpdatedAt:  now,
 	}
 
 	// Test GetSocialLinks method
@@ -253,7 +253,7 @@ func TestProfileEnrichmentValidation(t *testing.T) {
 		enrichment := &domain.ProfileEnrichment{
 			ID:        uuid.New(),
 			ProfileID: profileID,
-			Languages:  []string{"en", "es"},
+			Languages: []string{"en", "es"},
 			Timezone:  "America/New_York",
 			CreatedAt: now,
 			UpdatedAt: now,
@@ -271,7 +271,7 @@ func TestProfileEnrichmentValidation(t *testing.T) {
 		enrichment := &domain.ProfileEnrichment{
 			ID:        uuid.New(),
 			ProfileID: profileID,
-			Languages:  []string{"EN"}, // uppercase not allowed
+			Languages: []string{"EN"}, // uppercase not allowed
 			Timezone:  "America/New_York",
 			CreatedAt: now,
 			UpdatedAt: now,
@@ -302,16 +302,16 @@ func TestPortfolioItemDomain(t *testing.T) {
 
 	t.Run("create and validate", func(t *testing.T) {
 		item := &domain.PortfolioItem{
-			ID:          uuid.New(),
-			ProfileID:   profileID,
-			Title:       "Test Portfolio Item",
-			Description: "A test portfolio item",
+			ID:           uuid.New(),
+			ProfileID:    profileID,
+			Title:        "Test Portfolio Item",
+			Description:  "A test portfolio item",
 			ThumbnailURL: "https://example.com/thumb.jpg",
-			VideoURL:    "https://example.com/video.mp4",
+			VideoURL:     "https://example.com/video.mp4",
 			ExternalLink: "https://example.com",
 			DisplayOrder: 1,
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			CreatedAt:    now,
+			UpdatedAt:    now,
 		}
 
 		if item.ProfileID != profileID {
@@ -339,11 +339,11 @@ func TestPortfolioItemDomain(t *testing.T) {
 
 	t.Run("update portfolio item", func(t *testing.T) {
 		item := &domain.PortfolioItem{
-			ID:          uuid.New(),
-			ProfileID:   profileID,
+			ID:           uuid.New(),
+			ProfileID:    profileID,
 			DisplayOrder: 1,
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			CreatedAt:    now,
+			UpdatedAt:    now,
 		}
 
 		item.Update("New Title", "New Description", "https://new.com/thumb.jpg", "https://new.com/video.mp4", "https://new.com", 5)
@@ -362,7 +362,7 @@ func TestAudienceDataDomain(t *testing.T) {
 
 	t.Run("create with valid data", func(t *testing.T) {
 		data := &domain.AudienceData{
-			ProfileID:     profileID,
+			ProfileID:      profileID,
 			EngagementRate: 5.5,
 		}
 		if data.ProfileID != profileID {
@@ -372,7 +372,7 @@ func TestAudienceDataDomain(t *testing.T) {
 
 	t.Run("set and get platform handles", func(t *testing.T) {
 		data := &domain.AudienceData{
-			ProfileID:     profileID,
+			ProfileID:      profileID,
 			EngagementRate: 3.0,
 		}
 
@@ -392,7 +392,7 @@ func TestAudienceDataDomain(t *testing.T) {
 
 	t.Run("update audience data", func(t *testing.T) {
 		data := &domain.AudienceData{
-			ProfileID:     profileID,
+			ProfileID:      profileID,
 			EngagementRate: 3.0,
 		}
 
@@ -507,7 +507,7 @@ func TestPayoutPreferencesDomain(t *testing.T) {
 
 	t.Run("update payout preferences", func(t *testing.T) {
 		prefs := &domain.PayoutPreferences{
-			ProfileID:      profileID,
+			ProfileID:       profileID,
 			PreferredMethod: domain.PayoutMethodBankTransfer,
 		}
 

@@ -2,8 +2,8 @@ package onboarding
 
 import (
 	"github.com/google/uuid"
-	"viralforge/backend/src/domain/onboarding"
 	"gorm.io/gorm"
+	"viralforge/backend/src/domain/onboarding"
 )
 
 // TemplateRepo implements TemplateRepository interface

@@ -91,10 +91,10 @@ func TestSessionServiceIntegration(t *testing.T) {
 
 		// Setup: Create session
 		session := &domain.Session{
-			ID:             sessionID,
-			UserID:         userID,
-			TokenHash:      "test-token",
-			ExpiresAt:      time.Now().Add(24 * time.Hour),
+			ID:              sessionID,
+			UserID:          userID,
+			TokenHash:       "test-token",
+			ExpiresAt:       time.Now().Add(24 * time.Hour),
 			ActiveProfileID: nil,
 		}
 		sessionRepo.Create(context.Background(), session)
@@ -215,10 +215,10 @@ func TestSessionServiceIntegration(t *testing.T) {
 
 		// Create session with active profile
 		session := &domain.Session{
-			ID:             sessionID,
-			UserID:         userID,
-			TokenHash:      "profile-token",
-			ExpiresAt:      time.Now().Add(24 * time.Hour),
+			ID:              sessionID,
+			UserID:          userID,
+			TokenHash:       "profile-token",
+			ExpiresAt:       time.Now().Add(24 * time.Hour),
 			ActiveProfileID: &profileID,
 		}
 		sessionRepo.Create(context.Background(), session)
@@ -241,10 +241,10 @@ func TestSessionServiceIntegration(t *testing.T) {
 
 		// Create session without active profile
 		session := &domain.Session{
-			ID:             sessionID,
-			UserID:         userID,
-			TokenHash:      "no-profile-token",
-			ExpiresAt:      time.Now().Add(24 * time.Hour),
+			ID:              sessionID,
+			UserID:          userID,
+			TokenHash:       "no-profile-token",
+			ExpiresAt:       time.Now().Add(24 * time.Hour),
 			ActiveProfileID: nil,
 		}
 		sessionRepo.Create(context.Background(), session)
