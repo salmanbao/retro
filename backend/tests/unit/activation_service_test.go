@@ -8,10 +8,10 @@ import (
 
 func TestActivationStatusTransitions(t *testing.T) {
 	tests := []struct {
-		name       string
-		from       string
-		to         string
-		expectErr  bool
+		name      string
+		from      string
+		to        string
+		expectErr bool
 	}{
 		{"not_started to onboarding", domain.ActivationStatusNotStarted, domain.ActivationStatusOnboarding, false},
 		{"onboarding to pending_review", domain.ActivationStatusOnboarding, domain.ActivationStatusPendingReview, false},

@@ -40,11 +40,11 @@ func (h *Handler) RegisterPublicRoutes(r chi.Router) {
 type GetOnboardingResponse struct {
 	ProfileID              string  `json:"profile_id"`
 	ActivationStatus       string  `json:"activation_status"`
-	PercentageComplete    int     `json:"percentage_complete"`
+	PercentageComplete     int     `json:"percentage_complete"`
 	RequiredStepsRemaining int     `json:"required_steps_remaining"`
-	TemplateVersion       string  `json:"template_version"`
-	StartedAt             *string `json:"started_at,omitempty"`
-	LastActivityAt        *string `json:"last_activity_at,omitempty"`
+	TemplateVersion        string  `json:"template_version"`
+	StartedAt              *string `json:"started_at,omitempty"`
+	LastActivityAt         *string `json:"last_activity_at,omitempty"`
 }
 
 // StepResponse represents a step in API responses.
@@ -124,8 +124,8 @@ func (h *Handler) GetOnboarding(w http.ResponseWriter, r *http.Request) {
 	percentage, _ := h.activationSvc.CalculatePercentage(progress)
 
 	resp := GetOnboardingResponse{
-		ProfileID:           profileID.String(),
-		ActivationStatus:    progress.ActivationStatus,
+		ProfileID:          profileID.String(),
+		ActivationStatus:   progress.ActivationStatus,
 		PercentageComplete: percentage,
 		TemplateVersion:    progress.TemplateVersion,
 		StartedAt:          formatTime(progress.StartedAt),
@@ -256,11 +256,11 @@ func (h *Handler) UpdateStep(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := StepResponse{
-		ID:           updated.StepID.String(),
-		Title:        updated.Status, // This should be filled properly
-		Status:       updated.Status,
-		StartedAt:    formatTime(updated.StartedAt),
-		CompletedAt:  formatTime(updated.CompletedAt),
+		ID:          updated.StepID.String(),
+		Title:       updated.Status, // This should be filled properly
+		Status:      updated.Status,
+		StartedAt:   formatTime(updated.StartedAt),
+		CompletedAt: formatTime(updated.CompletedAt),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -292,8 +292,8 @@ func (h *Handler) Recalculate(w http.ResponseWriter, r *http.Request) {
 	percentage, _ := h.activationSvc.CalculatePercentage(progress)
 
 	resp := GetOnboardingResponse{
-		ProfileID:           profileID.String(),
-		ActivationStatus:    progress.ActivationStatus,
+		ProfileID:          profileID.String(),
+		ActivationStatus:   progress.ActivationStatus,
 		PercentageComplete: percentage,
 		TemplateVersion:    progress.TemplateVersion,
 		StartedAt:          formatTime(progress.StartedAt),

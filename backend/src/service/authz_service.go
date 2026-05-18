@@ -17,7 +17,7 @@ type AuthorizationService struct {
 	roleRepo        repository.RoleRepository
 	rolePermRepo    repository.RolePermissionRepository
 	profileRoleRepo repository.ProfileRoleRepository
-	logger         *slog.Logger
+	logger          *slog.Logger
 }
 
 // NewAuthorizationService creates a new AuthorizationService.

@@ -111,9 +111,9 @@ func TestT057_PermissionEntityValidation(t *testing.T) {
 // TestT057_PermissionWildcard tests wildcard permission detection.
 func TestT057_PermissionWildcard(t *testing.T) {
 	tests := []struct {
-		name      string
-		key       string
-		wantWild  bool
+		name     string
+		key      string
+		wantWild bool
 	}{
 		{"wildcard campaign", "campaign.*", true},
 		{"wildcard analytics", "analytics.*", true},
@@ -135,10 +135,10 @@ func TestT057_PermissionWildcard(t *testing.T) {
 // is a special case handled at the service layer, not through the domain Matches method.
 func TestT057_PermissionMatches(t *testing.T) {
 	tests := []struct {
-		name       string
-		wildcard   string
-		concrete   string
-		wantMatch  bool
+		name      string
+		wildcard  string
+		concrete  string
+		wantMatch bool
 	}{
 		{"campaign wildcard matches create", "campaign.*", "campaign.create", true},
 		{"campaign wildcard matches update", "campaign.*", "campaign.update", true},

@@ -187,10 +187,10 @@ func TestT081_PortfolioCRUDAsEditor(t *testing.T) {
 	// Create an editor profile
 	userID := uuid.New()
 	editorProfile := &domain.Profile{
-		ID:   uuid.New(),
+		ID:     uuid.New(),
 		UserID: userID,
-		Type: domain.ProfileTypeEditor,
-		Name: "Editor Profile",
+		Type:   domain.ProfileTypeEditor,
+		Name:   "Editor Profile",
 	}
 	profileRepo.Create(context.Background(), editorProfile)
 
@@ -225,7 +225,7 @@ func TestT081_PortfolioCRUDAsEditor(t *testing.T) {
 	// Test POST /api/v1/profiles/{id}/portfolio (create)
 	createReq := handler.CreatePortfolioItemRequest{
 		Title:        "Test Portfolio Item",
-		Description: "A test portfolio item",
+		Description:  "A test portfolio item",
 		ThumbnailURL: "https://example.com/thumb.jpg",
 		DisplayOrder: 1,
 	}
@@ -290,10 +290,10 @@ func TestT081_PortfolioRejectionForNonEditor(t *testing.T) {
 	// Create a brand profile (not editor)
 	userID := uuid.New()
 	brandProfile := &domain.Profile{
-		ID:   uuid.New(),
+		ID:     uuid.New(),
 		UserID: userID,
-		Type: domain.ProfileTypeBrand,
-		Name: "Brand Profile",
+		Type:   domain.ProfileTypeBrand,
+		Name:   "Brand Profile",
 	}
 	profileRepo.Create(context.Background(), brandProfile)
 
@@ -346,10 +346,10 @@ func TestT080_PortfolioOrderingWithGaps(t *testing.T) {
 	// Create an editor profile
 	userID := uuid.New()
 	editorProfile := &domain.Profile{
-		ID:   uuid.New(),
+		ID:     uuid.New(),
 		UserID: userID,
-		Type: domain.ProfileTypeEditor,
-		Name: "Editor Profile",
+		Type:   domain.ProfileTypeEditor,
+		Name:   "Editor Profile",
 	}
 	profileRepo.Create(context.Background(), editorProfile)
 
