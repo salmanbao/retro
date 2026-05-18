@@ -10,7 +10,10 @@ import (
 	"viralforge/backend/src/adapter"
 	"viralforge/backend/src/handler"
 	authMiddleware "viralforge/backend/src/middleware"
+	onboardingHandler "viralforge/backend/src/handler/onboarding"
+	onboardingRepo "viralforge/backend/src/repository/onboarding"
 	"viralforge/backend/src/service"
+	"viralforge/backend/src/service/onboarding"
 )
 
 const timeout = 30 * time.Second
@@ -105,6 +108,17 @@ func (s *Server) Setup() {
 		s.store.ProfileRepository(),
 	)
 
+	onboardingSvc := onboarding.NewService(
+		onboardingRepo.NewTemplateRepo(s.store.DB()),
+		onboardingRepo.NewProgressRepo(s.store.DB()),
+		onboardingRepo.NewStepRepo(s.store.DB()),
+	)
+	activationSvc := onboarding.NewActivationService(
+		onboardingRepo.NewTemplateRepo(s.store.DB()),
+		onboardingRepo.NewProgressRepo(s.store.DB()),
+		onboardingRepo.NewStepRepo(s.store.DB()),
+	)
+
 	// Create handlers
 	authHandler := handler.NewAuthHandler(authSvc, loginHistorySvc, twoFactorSvc)
 	sessionHandler := handler.NewSessionHandler(sessionSvc)
@@ -116,6 +130,7 @@ func (s *Server) Setup() {
 	kycHandler := handler.NewKYCHandler(kycSvc)
 	payoutHandler := handler.NewPayoutHandler(payoutSvc)
 	twoFactorHandler := handler.NewTwoFactorHandler(twoFactorSvc, authSvc)
+	onboardingHandler := onboardingHandler.NewHandler(onboardingSvc, activationSvc)
 
 	// Create middleware
 	authMw := authMiddleware.NewAuthMiddleware(s.store.SessionRepository(), s.store.UserRepository())
@@ -169,6 +184,10 @@ func (s *Server) Setup() {
 			r.Get("/", payoutHandler.GetPayoutPreferences)
 			r.Put("/", payoutHandler.UpdatePayoutPreferences)
 		})
+		r.Route("/{id}/onboarding", func(r chi.Router) {
+			r.Use(ownershipMw.RequireOwnership)
+			onboardingHandler.RegisterPublicRoutes(r)
+		})
 	})
 	// Admin routes
 	s.router.Route("/api/v1/admin/profiles", func(r chi.Router) {
@@ -176,6 +195,7 @@ func (s *Server) Setup() {
 		r.Use(adminMw.RequireAdmin) // Admin access required
 		r.Put("/{profileId}/verification/review", verificationHandler.AdminReviewVerification)
 		r.Put("/{profileId}/kyc", kycHandler.AdminUpdateKYC)
+		r.Post("/{profileId}/onboarding/activate", onboardingHandler.AdminActivate)
 	})
 	// Protected session routes
 	s.router.Route("/api/v1/sessions", func(r chi.Router) {
