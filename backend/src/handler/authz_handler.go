@@ -191,15 +191,15 @@ func (h *AuthzHandler) RevokeRole(w http.ResponseWriter, r *http.Request) {
 
 // GetEffectivePermissionsResponse represents the response for getting effective permissions.
 type GetEffectivePermissionsResponse struct {
-	ProfileID   string   `json:"profile_id"`
-	Permissions []string `json:"permissions"`
+	ProfileID   string     `json:"profile_id"`
+	Permissions []string   `json:"permissions"`
 	Roles       []RoleInfo `json:"roles"`
 }
 
 // RoleInfo represents role information in the effective permissions response.
 type RoleInfo struct {
-	ID           string  `json:"id"`
-	Name         string  `json:"name"`
+	ID            string  `json:"id"`
+	Name          string  `json:"name"`
 	InheritedFrom *string `json:"inherited_from,omitempty"`
 }
 

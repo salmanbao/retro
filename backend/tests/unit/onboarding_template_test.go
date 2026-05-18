@@ -32,12 +32,12 @@ func TestIsValidStepType(t *testing.T) {
 
 func TestOnboardingStep_Struct(t *testing.T) {
 	step := domain.OnboardingStep{
-		Title:          "Test Step",
-		Description:    "Test Description",
-		ActionURL:      "/test",
-		StepType:       "checklist",
-		Required:       true,
-		DisplayOrder:   1,
+		Title:           "Test Step",
+		Description:     "Test Description",
+		ActionURL:       "/test",
+		StepType:        "checklist",
+		Required:        true,
+		DisplayOrder:    1,
 		AutoCompleteKey: "test_key",
 	}
 

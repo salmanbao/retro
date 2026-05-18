@@ -9,8 +9,8 @@ import (
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"viralforge/backend/src/adapter"
 	"viralforge/backend/src/handler"
-	authMiddleware "viralforge/backend/src/middleware"
 	onboardingHandler "viralforge/backend/src/handler/onboarding"
+	authMiddleware "viralforge/backend/src/middleware"
 	onboardingRepo "viralforge/backend/src/repository/onboarding"
 	"viralforge/backend/src/service"
 	"viralforge/backend/src/service/onboarding"
@@ -141,10 +141,10 @@ func (s *Server) Setup() {
 	s.router.Route("/api/v1/auth", func(r chi.Router) {
 		authHandler.RegisterRoutes(r)
 	})
-	// Protected auth routes
+	// Protected /me route - must be explicitly protected since RegisterRoutes handles it without middleware
 	s.router.Route("/api/v1/auth/me", func(r chi.Router) {
 		r.Use(authMw.Authenticate)
-		r.Get("/me", authHandler.Me)
+		r.Get("/", authHandler.Me)
 	})
 	// Protected profile routes
 	s.router.Route("/api/v1/profiles", func(r chi.Router) {

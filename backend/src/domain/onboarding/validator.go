@@ -24,7 +24,7 @@ func IsValidProfileType(profileType string) bool {
 func IsValidStepStatusTransition(current, next string) bool {
 	switch current {
 	case StepStatusNotStarted:
-		return next == StepStatusInProgress
+		return next == StepStatusInProgress || next == StepStatusSkipped
 	case StepStatusInProgress:
 		return next == StepStatusCompleted || next == StepStatusSkipped
 	case StepStatusCompleted:
