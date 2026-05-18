@@ -17,7 +17,7 @@ type ProfileEnrichment struct {
 	CoverURL    string          `gorm:"type:varchar(500)" json:"cover_url,omitempty"`
 	WebsiteURL  string          `gorm:"type:varchar(500)" json:"website_url,omitempty"`
 	Location    string          `gorm:"type:varchar(255)" json:"location,omitempty"`
-	Languages   pq.StringArray   `gorm:"type:text[]" json:"languages,omitempty"`
+	Languages   pq.StringArray  `gorm:"type:text[]" json:"languages,omitempty"`
 	Timezone    string          `gorm:"type:varchar(100)" json:"timezone,omitempty"`
 	SocialLinks json.RawMessage `gorm:"type:jsonb" json:"social_links,omitempty"`
 	CreatedAt   time.Time       `gorm:"type:timestamptz;autoCreateTime" json:"created_at"`

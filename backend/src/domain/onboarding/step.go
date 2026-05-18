@@ -9,17 +9,17 @@ import (
 
 // OnboardingStep defines a single step within an onboarding template
 type OnboardingStep struct {
-	ID             uuid.UUID `gorm:"type:uuid;primary_key" json:"id"`
-	TemplateID     uuid.UUID `gorm:"type:uuid;index" json:"template_id"`
-	Title          string    `gorm:"type:varchar(100)" json:"title"`
-	Description    string    `gorm:"type:text" json:"description,omitempty"`
-	ActionURL      string    `gorm:"type:varchar(500)" json:"action_url,omitempty"`
-	StepType       string    `gorm:"type:varchar(30)" json:"step_type"` // tutorial, checklist, verification, profile_completion
-	Required       bool      `gorm:"default:false" json:"required"`
-	DisplayOrder   int       `gorm:"default:0" json:"display_order"`
-	AutoCompleteKey string   `gorm:"type:varchar(50)" json:"auto_complete_key,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID              uuid.UUID `gorm:"type:uuid;primary_key" json:"id"`
+	TemplateID      uuid.UUID `gorm:"type:uuid;index" json:"template_id"`
+	Title           string    `gorm:"type:varchar(100)" json:"title"`
+	Description     string    `gorm:"type:text" json:"description,omitempty"`
+	ActionURL       string    `gorm:"type:varchar(500)" json:"action_url,omitempty"`
+	StepType        string    `gorm:"type:varchar(30)" json:"step_type"` // tutorial, checklist, verification, profile_completion
+	Required        bool      `gorm:"default:false" json:"required"`
+	DisplayOrder    int       `gorm:"default:0" json:"display_order"`
+	AutoCompleteKey string    `gorm:"type:varchar(50)" json:"auto_complete_key,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 // TableName returns the table name for OnboardingStep

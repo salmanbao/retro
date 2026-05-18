@@ -27,8 +27,8 @@ func NewTwoFactorHandler(twoFactorSvc *service.TwoFactorService, authSvc *servic
 
 // Setup2FAResponse represents the 2FA setup response.
 type Setup2FAResponse struct {
-	Secret     string   `json:"secret"`
-	QRCodeURL  string   `json:"qr_code_url"`
+	Secret      string   `json:"secret"`
+	QRCodeURL   string   `json:"qr_code_url"`
 	BackupCodes []string `json:"backup_codes"`
 }
 
