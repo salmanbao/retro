@@ -10,9 +10,9 @@ func TestProfileEnrichmentChecker_AllOrNothing(t *testing.T) {
 	checker := &onboarding.ProfileEnrichmentChecker{}
 
 	tests := []struct {
-		name       string
+		name        string
 		profileData map[string]interface{}
-		expect     bool
+		expect      bool
 	}{
 		{"both bio and avatar", map[string]interface{}{"bio": "Hello", "avatar": "https://example.com/photo.jpg"}, true},
 		{"only bio", map[string]interface{}{"bio": "Hello"}, false},
@@ -36,9 +36,9 @@ func TestPayoutPreferencesChecker(t *testing.T) {
 	checker := &onboarding.PayoutPreferencesChecker{}
 
 	tests := []struct {
-		name       string
+		name        string
 		profileData map[string]interface{}
-		expect     bool
+		expect      bool
 	}{
 		{"with encrypted details", map[string]interface{}{"payout_preferences": map[string]interface{}{"encrypted_details": "xxx"}}, true},
 		{"without encrypted details", map[string]interface{}{"payout_preferences": map[string]interface{}{}}, false},
@@ -60,9 +60,9 @@ func TestKYCStatusChecker(t *testing.T) {
 	checker := &onboarding.KYCStatusChecker{}
 
 	tests := []struct {
-		name       string
+		name        string
 		profileData map[string]interface{}
-		expect     bool
+		expect      bool
 	}{
 		{"approved", map[string]interface{}{"kyc_status": "approved"}, true},
 		{"pending", map[string]interface{}{"kyc_status": "pending"}, false},
@@ -85,9 +85,9 @@ func TestSocialLinksChecker(t *testing.T) {
 	checker := &onboarding.SocialLinksChecker{}
 
 	tests := []struct {
-		name       string
+		name        string
 		profileData map[string]interface{}
-		expect     bool
+		expect      bool
 	}{
 		{"with social links", map[string]interface{}{"social_links": map[string]interface{}{"twitter": "https://twitter.com/user"}}, true},
 		{"empty social links", map[string]interface{}{"social_links": map[string]interface{}{}}, false},

@@ -9,11 +9,11 @@ import (
 
 // OnboardingTemplate defines the onboarding flow for a profile type
 type OnboardingTemplate struct {
-	ID          uuid.UUID `gorm:"type:uuid;primary_key" json:"id"`
-	ProfileType string    `gorm:"type:varchar(20);index" json:"profile_type"` // brand, editor, influencer
-	Version     string    `gorm:"type:varchar(10)" json:"version"`           // semantic version
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          uuid.UUID        `gorm:"type:uuid;primary_key" json:"id"`
+	ProfileType string           `gorm:"type:varchar(20);index" json:"profile_type"` // brand, editor, influencer
+	Version     string           `gorm:"type:varchar(10)" json:"version"`            // semantic version
+	CreatedAt   time.Time        `json:"created_at"`
+	UpdatedAt   time.Time        `json:"updated_at"`
 	Steps       []OnboardingStep `gorm:"foreignKey:TemplateID" json:"steps,omitempty"`
 }
 

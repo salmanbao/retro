@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"viralforge/backend/src/domain"
 	adapter "viralforge/backend/src/adapter"
+	"viralforge/backend/src/domain"
 )
 
 // LoginHistoryService handles login history operations.
