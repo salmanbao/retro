@@ -53,13 +53,13 @@ func (r *mockRBACUserRepo) Delete(ctx context.Context, id uuid.UUID) error {
 
 // mockRBACSessionRepo implements repository.SessionRepository for middleware tests.
 type mockRBACSessionRepo struct {
-	sessions     map[uuid.UUID]*domain.Session
+	sessions       map[uuid.UUID]*domain.Session
 	tokenToSession map[string]*domain.Session
 }
 
 func newMockRBACSessionRepo() *mockRBACSessionRepo {
 	return &mockRBACSessionRepo{
-		sessions:     make(map[uuid.UUID]*domain.Session),
+		sessions:       make(map[uuid.UUID]*domain.Session),
 		tokenToSession: make(map[string]*domain.Session),
 	}
 }
@@ -133,18 +133,18 @@ func TestAuthMiddlewareInjectActiveProfile(t *testing.T) {
 
 		// Create user
 		user := &domain.User{
-			ID:     userID,
-			Email:  "test@example.com",
+			ID:       userID,
+			Email:    "test@example.com",
 			Verified: true,
 		}
 		userRepo.Create(context.Background(), user)
 
 		// Create session with active profile
 		session := &domain.Session{
-			ID:             sessionID,
-			UserID:         userID,
-			TokenHash:      token,
-			ExpiresAt:      time.Now().Add(24 * time.Hour),
+			ID:              sessionID,
+			UserID:          userID,
+			TokenHash:       token,
+			ExpiresAt:       time.Now().Add(24 * time.Hour),
 			ActiveProfileID: &profileID,
 		}
 		sessionRepo.Create(context.Background(), session)
@@ -177,18 +177,18 @@ func TestAuthMiddlewareInjectActiveProfile(t *testing.T) {
 
 		// Create user
 		user := &domain.User{
-			ID:     userID,
-			Email:  "test@example.com",
+			ID:       userID,
+			Email:    "test@example.com",
 			Verified: true,
 		}
 		userRepo.Create(context.Background(), user)
 
 		// Create session WITHOUT active profile
 		session := &domain.Session{
-			ID:             sessionID,
-			UserID:         userID,
-			TokenHash:      token,
-			ExpiresAt:      time.Now().Add(24 * time.Hour),
+			ID:              sessionID,
+			UserID:          userID,
+			TokenHash:       token,
+			ExpiresAt:       time.Now().Add(24 * time.Hour),
 			ActiveProfileID: nil,
 		}
 		sessionRepo.Create(context.Background(), session)
@@ -220,18 +220,18 @@ func TestAuthMiddlewareInjectActiveProfile(t *testing.T) {
 
 		// Create user
 		user := &domain.User{
-			ID:     userID,
-			Email:  "test@example.com",
+			ID:       userID,
+			Email:    "test@example.com",
 			Verified: true,
 		}
 		userRepo.Create(context.Background(), user)
 
 		// Create expired session
 		session := &domain.Session{
-			ID:             sessionID,
-			UserID:         userID,
-			TokenHash:      token,
-			ExpiresAt:      time.Now().Add(-1 * time.Hour), // Expired
+			ID:        sessionID,
+			UserID:    userID,
+			TokenHash: token,
+			ExpiresAt: time.Now().Add(-1 * time.Hour), // Expired
 		}
 		sessionRepo.Create(context.Background(), session)
 
@@ -298,18 +298,18 @@ func TestRequireBrandProfileMiddleware(t *testing.T) {
 
 		// Create user
 		user := &domain.User{
-			ID:     userID,
-			Email:  "brand@example.com",
+			ID:       userID,
+			Email:    "brand@example.com",
 			Verified: true,
 		}
 		userRepo.Create(context.Background(), user)
 
 		// Create session with brand profile
 		session := &domain.Session{
-			ID:             sessionID,
-			UserID:         userID,
-			TokenHash:      token,
-			ExpiresAt:      time.Now().Add(24 * time.Hour),
+			ID:              sessionID,
+			UserID:          userID,
+			TokenHash:       token,
+			ExpiresAt:       time.Now().Add(24 * time.Hour),
 			ActiveProfileID: &profileID,
 		}
 		sessionRepo.Create(context.Background(), session)
@@ -348,8 +348,8 @@ func TestRequireBrandProfileMiddleware(t *testing.T) {
 func TestGetUserFromContext(t *testing.T) {
 	t.Run("returns user when present in context", func(t *testing.T) {
 		user := &domain.User{
-			ID:      uuid.New(),
-			Email:   "test@example.com",
+			ID:       uuid.New(),
+			Email:    "test@example.com",
 			Verified: true,
 		}
 		ctx := context.WithValue(context.Background(), middleware.UserContextKey, user)
@@ -419,18 +419,18 @@ func TestAuthMiddlewareIntegration(t *testing.T) {
 
 		// Create user
 		user := &domain.User{
-			ID:     userID,
-			Email:  "chi@example.com",
+			ID:       userID,
+			Email:    "chi@example.com",
 			Verified: true,
 		}
 		userRepo.Create(context.Background(), user)
 
 		// Create session with profile
 		session := &domain.Session{
-			ID:             sessionID,
-			UserID:         userID,
-			TokenHash:      token,
-			ExpiresAt:      time.Now().Add(24 * time.Hour),
+			ID:              sessionID,
+			UserID:          userID,
+			TokenHash:       token,
+			ExpiresAt:       time.Now().Add(24 * time.Hour),
 			ActiveProfileID: &profileID,
 		}
 		sessionRepo.Create(context.Background(), session)

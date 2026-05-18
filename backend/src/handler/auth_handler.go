@@ -125,10 +125,10 @@ type LoginRequest struct {
 
 // LoginResponse represents a successful login response.
 type LoginResponse struct {
-	Token      string `json:"token,omitempty"`
-	ExpiresAt  string `json:"expires_at"`
-	UserID     string `json:"user_id,omitempty"`
-	Requires2FA bool  `json:"requires_2fa,omitempty"`
+	Token       string `json:"token,omitempty"`
+	ExpiresAt   string `json:"expires_at"`
+	UserID      string `json:"user_id,omitempty"`
+	Requires2FA bool   `json:"requires_2fa,omitempty"`
 }
 
 // Login handles POST /api/v1/auth/login.
@@ -171,9 +171,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(LoginResponse{
-				Token:     "", // Empty token - requires 2FA
-				ExpiresAt: session.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
-				UserID:    session.UserID.String(),
+				Token:       "", // Empty token - requires 2FA
+				ExpiresAt:   session.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
+				UserID:      session.UserID.String(),
 				Requires2FA: true,
 			})
 			return
@@ -314,10 +314,10 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 // LoginHistoryResponse represents the login history response.
 type LoginHistoryResponse struct {
 	History    []*domain.LoginHistory `json:"history"`
-	Total      int64                 `json:"total"`
-	Page       int                   `json:"page"`
-	PageSize   int                   `json:"page_size"`
-	TotalPages int                   `json:"total_pages"`
+	Total      int64                  `json:"total"`
+	Page       int                    `json:"page"`
+	PageSize   int                    `json:"page_size"`
+	TotalPages int                    `json:"total_pages"`
 }
 
 // GetLoginHistory handles GET /api/v1/auth/login-history.
