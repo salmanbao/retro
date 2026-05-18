@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/go-chi/chi"
+	"github.com/google/uuid"
 	"viralforge/backend/src/service"
 )
 
@@ -16,8 +16,8 @@ const (
 
 // RBACResult represents the result of an RBAC permission check.
 type RBACResult struct {
-	Allowed   bool
-	Reason    string
+	Allowed    bool
+	Reason     string
 	Permission string
 }
 

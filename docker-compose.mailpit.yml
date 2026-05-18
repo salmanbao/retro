@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: viralforge-mailpit
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # HTTP UI/API
+    environment:
+      - MP_SMTP_BIND=0.0.0.0:1025
+      - MP_UI_BIND=0.0.0.0:8025
+      - MP_MAX_MESSAGES=500
+      - MP_DATA_DIR=/data
+    volumes:
+      - mailpit_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8025/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  mailpit_data:

@@ -17,8 +17,8 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
-	"viralforge/backend/src/domain"
 	adapter "viralforge/backend/src/adapter"
+	"viralforge/backend/src/domain"
 )
 
 const (

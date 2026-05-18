@@ -30,9 +30,9 @@ type PerformanceBenchmarkSuite struct {
 	server *httptest.Server
 	router *chi.Mux
 
-	userID        uuid.UUID
-	profileID     uuid.UUID
-	enrichmentID  uuid.UUID
+	userID       uuid.UUID
+	profileID    uuid.UUID
+	enrichmentID uuid.UUID
 
 	profileEnrichmentSvc *service.ProfileEnrichmentService
 	portfolioSvc         *service.PortfolioService

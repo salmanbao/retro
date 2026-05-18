@@ -176,8 +176,8 @@ func (s *PostgresStore) seedRolePermissions(ctx context.Context) error {
 			}
 
 			rp := &domain.RolePermission{
-				RoleID:         role.ID,
-				PermissionKey:  perm.Key,
+				RoleID:        role.ID,
+				PermissionKey: perm.Key,
 			}
 
 			// Check if already exists

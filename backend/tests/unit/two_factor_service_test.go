@@ -39,9 +39,9 @@ func TestTOTPCodeValidation(t *testing.T) {
 	assert.Len(t, code, 6)
 
 	valid, err := totp.ValidateCustom(code, key.Secret(), time.Now(), totp.ValidateOpts{
-		Period:    30,
-		Skew:      1,
-		Digits:    6,
+		Period: 30,
+		Skew:   1,
+		Digits: 6,
 	})
 	assert.NoError(t, err)
 	assert.True(t, valid)
