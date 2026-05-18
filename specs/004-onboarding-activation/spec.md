@@ -22,6 +22,16 @@ This feature adds onboarding tracking and activation status management. It does 
 
 ---
 
+## Clarifications
+
+### Session 2026-05-18
+
+- Q: Template versioning strategy (snapshot vs live migration) → A: Snapshot approach - each OnboardingProgress snapshots the template version at creation time; progress stays locked to that version; recalculate only adds missing steps from newer templates
+- Q: Auto-complete trigger criteria (all-or-nothing vs any-present) → A: All-or-nothing - auto-complete only if ALL relevant fields for that step type are present (e.g., bio AND avatar for profile_completion). Ensures quality and prevents partial completion from triggering auto-complete.
+- Q: Activation transition from pending_review to activated (manual vs automatic) → A: Manual admin approval - admin must explicitly approve via API to reach activated. Provides quality control gate. Immediate automatic transition is out of scope.
+- Q: Step completion reversal when underlying data removed → A: No reversal - completed steps stay completed regardless of subsequent data changes. Recalculate only adds missing steps from newer templates, never reverts existing completions. Prevents oscillation and race conditions.
+- Q: Next-step recommendation scope (existing vs current template) → A: Only existing progress steps - next-step returns first incomplete step from user's snapshot progress. Newer template steps not shown until recalculate adds them. Consistent with snapshot versioning approach.
+
 ## 2. Functional Requirements
 
 ### 2.1 Onboarding Templates
@@ -66,10 +76,10 @@ This feature adds onboarding tracking and activation status management. It does 
 - `pending_review` (all required steps completed, awaiting review)
 - `activated` (approved and fully active)
 
-**FR-009**: Activation state changes occur automatically when:
-- `not_started` → `onboarding`: When any step status changes from not_started
-- `onboarding` → `pending_review`: When all required steps are completed or skipped
-- `pending_review` → `activated`: When admin approves or prerequisite conditions satisfied
+**FR-009**: Activation state changes occur when:
+- `not_started` → `onboarding`: When any step status changes from not_started (automatic)
+- `onboarding` → `pending_review`: When all required steps are completed or skipped (automatic)
+- `pending_review` → `activated`: When admin explicitly approves via `POST /api/v1/admin/profiles/{id}/onboarding/activate` (manual)
 
 **FR-010**: Required steps cannot be bypassed for activation. Optional steps may be skipped without blocking activation.
 
@@ -237,9 +247,22 @@ This feature adds onboarding tracking and activation status management. It does 
 
 **Response**: Updated onboarding overview
 
+### POST /api/v1/admin/profiles/{id}/onboarding/activate
+
+**Description**: Admin manually approves profile activation
+
+**Request**: (empty body)
+
+**Response**: Updated onboarding overview with `activation_status: "activated"`
+
+**Errors**:
+- 401: Unauthorized (not admin)
+- 404: Profile not found
+- 400: Profile not in pending_review state
+
 ### GET /api/v1/profiles/{id}/onboarding/next-step
 
-**Description**: Get the next recommended step
+**Description**: Get the next recommended step from the user's snapshot template version
 
 **Response**:
 ```json
@@ -256,13 +279,15 @@ This feature adds onboarding tracking and activation status management. It does 
 }
 ```
 
-**If all steps completed**:
+**If all steps in user's progress are completed**:
 ```json
 {
   "step": null,
   "message": "All steps completed"
 }
 ```
+
+**Note**: Only returns steps from the user's snapshot template version. New steps from newer template versions are not included until recalculate adds them to progress.
 
 ---
 
@@ -298,8 +323,8 @@ This feature adds onboarding tracking and activation status management. It does 
 |-------|------|-------------|
 | id | UUID | Primary key |
 | profile_id | UUID | Foreign key to profile (unique) |
-| template_id | UUID | Foreign key to template |
-| template_version | string | Version at time of creation |
+| template_id | UUID | Foreign key to template (at time of creation) |
+| template_version | string | Snapshot of template version at creation time |
 | activation_status | enum | not_started, onboarding, pending_review, activated |
 | started_at | timestamp | When first step was started |
 | last_activity_at | timestamp | Last step access |
@@ -331,12 +356,15 @@ This feature adds onboarding tracking and activation status management. It does 
 - All required steps completed or skipped → `pending_review`
 - Admin approval received → `activated`
 
-**BR-006**: Templates are system-defined. Template changes do not automatically migrate existing progress; recalculation uses current template for missing steps only.
+**BR-006**: Templates are system-defined. Each OnboardingProgress snapshots the template version at creation time (stored in `template_version` field). Existing progress remains locked to that snapshot; recalculate only adds missing steps from newer template versions without modifying completed step definitions.
 
-**BR-007**: Auto-completion checks profile enrichment data:
-- Profile has bio and avatar → profile_completion step auto-completes
-- Profile has payout preferences → payout step auto-completes
-- Profile has verified KYC → KYC step auto-completes
+**BR-007**: Auto-completion checks profile enrichment data using all-or-nothing criteria:
+- Profile has bio AND avatar → profile_completion step auto-completes
+- Profile has payout preferences with encrypted details set → payout step auto-completes
+- Profile KYC status is approved → KYC step auto-completes
+- Partial data (e.g., bio only, no avatar) does NOT trigger auto-completion
+
+**BR-008**: Completed steps are permanent. Once a step status becomes `completed`, it stays completed regardless of subsequent data changes (e.g., user removes bio/avatar after profile_completion auto-completed). Recalculate only adds missing steps; it never reverts existing completions. This prevents oscillation and race conditions.
 
 ---
 
@@ -361,7 +389,7 @@ This feature adds onboarding tracking and activation status management. It does 
 
 ### Assumptions
 - Templates are created via database seeding, not admin UI
-- Activation `pending_review` requires admin action to reach `activated`
+- Activation from `pending_review` to `activated` requires explicit admin approval via API
 - Profile enrichment steps auto-complete only when data is complete (not partial)
 
 ### Out of Scope
