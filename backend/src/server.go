@@ -10,7 +10,9 @@ import (
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"viralforge/backend/src/adapter"
 	"viralforge/backend/src/handler"
+	assetHandler "viralforge/backend/src/handler/asset"
 	campaignHandler "viralforge/backend/src/handler/campaign"
+	creativeBriefHandler "viralforge/backend/src/handler/creative_brief"
 	onboardingHandler "viralforge/backend/src/handler/onboarding"
 	authMiddleware "viralforge/backend/src/middleware"
 	onboardingRepo "viralforge/backend/src/repository/onboarding"
@@ -115,6 +117,16 @@ func (s *Server) Setup() {
 		s.store.CampaignAssetRepository(),
 	)
 
+	// Creative Brief and Asset services
+	briefSvc := service.NewCreativeBriefService(
+		s.store.CreativeBriefRepository(),
+		s.store.CampaignRepository(),
+	)
+	assetSvc := service.NewAssetService(
+		s.store.AssetRepository(),
+		s.store.CampaignRepository(),
+	)
+
 	onboardingSvc := onboarding.NewService(
 		onboardingRepo.NewTemplateRepo(s.store.DB()),
 		onboardingRepo.NewProgressRepo(s.store.DB()),
@@ -139,6 +151,8 @@ func (s *Server) Setup() {
 	payoutHandler := handler.NewPayoutHandler(payoutSvc)
 	twoFactorHandler := handler.NewTwoFactorHandler(twoFactorSvc, authSvc)
 	onboardingHandler := onboardingHandler.NewHandler(onboardingSvc, activationSvc)
+	briefHdlr := creativeBriefHandler.NewHandler(briefSvc, campaignSvc, s.store.ProfileRepository())
+	assetHdlr := assetHandler.NewHandler(assetSvc, campaignSvc, s.store.ProfileRepository())
 
 	// Create middleware
 	authMw := authMiddleware.NewAuthMiddleware(s.store.SessionRepository(), s.store.UserRepository())
@@ -225,6 +239,16 @@ func (s *Server) Setup() {
 	s.router.Route("/api/v1/campaigns", func(r chi.Router) {
 		r.Use(authMw.Authenticate)
 		campaignHdlr.RegisterRoutes(r)
+	})
+	// Creative brief routes
+	s.router.Route("/api/v1/campaigns", func(r chi.Router) {
+		r.Use(authMw.Authenticate)
+		briefHdlr.RegisterRoutes(r)
+	})
+	// Asset routes
+	s.router.Route("/api/v1", func(r chi.Router) {
+		r.Use(authMw.Authenticate)
+		assetHdlr.RegisterRoutes(r)
 	})
 }
 

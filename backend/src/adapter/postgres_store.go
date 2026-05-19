@@ -782,8 +782,10 @@ var (
 	_ repository.FollowerVerificationRepository = (*followerVerificationRepo)(nil)
 	_ repository.PayoutPreferencesRepository    = (*payoutPreferencesRepo)(nil)
 	_ repository.KYCStatusRepository            = (*kycStatusRepo)(nil)
-	_ repository.CampaignRepository              = (*campaignRepo)(nil)
+	_ repository.CampaignRepository             = (*campaignRepo)(nil)
 	_ repository.CampaignAssetRepository        = (*campaignAssetRepo)(nil)
+	_ repository.CreativeBriefRepository        = (*creativeBriefRepo)(nil)
+	_ repository.AssetMetadataRepository        = (*assetRepo)(nil)
 )
 
 // UserRepository returns a repository.UserRepository backed by PostgresStore.
@@ -866,6 +868,120 @@ func (s *PostgresStore) CampaignAssetRepository() repository.CampaignAssetReposi
 	return &campaignAssetRepo{s}
 }
 
+// CreativeBriefRepository returns a repository.CreativeBriefRepository backed by PostgresStore.
+func (s *PostgresStore) CreativeBriefRepository() repository.CreativeBriefRepository {
+	return &creativeBriefRepo{s}
+}
+
+// AssetRepository returns a repository.AssetMetadataRepository backed by PostgresStore.
+func (s *PostgresStore) AssetRepository() repository.AssetMetadataRepository {
+	return &assetRepo{s}
+}
+
+// creativeBriefRepo adapts PostgresStore to satisfy repository.CreativeBriefRepository.
+type creativeBriefRepo struct{ *PostgresStore }
+
+func (r *creativeBriefRepo) Create(ctx context.Context, brief *domain.CreativeBrief) error {
+	return r.DB().Create(brief).Error
+}
+func (r *creativeBriefRepo) ByID(ctx context.Context, id uuid.UUID) (*domain.CreativeBrief, error) {
+	var brief domain.CreativeBrief
+	if err := r.DB().Where("id = ?", id).First(&brief).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, repository.ErrBriefNotFound
+		}
+		return nil, err
+	}
+	return &brief, nil
+}
+func (r *creativeBriefRepo) ByCampaignID(ctx context.Context, campaignID uuid.UUID) (*domain.CreativeBrief, error) {
+	var brief domain.CreativeBrief
+	if err := r.DB().Where("campaign_id = ?", campaignID).First(&brief).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, repository.ErrBriefNotFound
+		}
+		return nil, err
+	}
+	return &brief, nil
+}
+func (r *creativeBriefRepo) Update(ctx context.Context, brief *domain.CreativeBrief) error {
+	return r.DB().Save(brief).Error
+}
+func (r *creativeBriefRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	result := r.DB().Delete(&domain.CreativeBrief{}, "id = ?", id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return repository.ErrBriefNotFound
+	}
+	return nil
+}
+
+// assetRepo adapts PostgresStore to satisfy repository.AssetRepository.
+type assetRepo struct{ *PostgresStore }
+
+func (r *assetRepo) Create(ctx context.Context, asset *domain.AssetMetadata) error {
+	return r.DB().Create(asset).Error
+}
+func (r *assetRepo) ByID(ctx context.Context, id uuid.UUID) (*domain.AssetMetadata, error) {
+	var asset domain.AssetMetadata
+	if err := r.DB().Where("id = ? AND deleted_at IS NULL", id).First(&asset).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, repository.ErrAssetNotFound
+		}
+		return nil, err
+	}
+	return &asset, nil
+}
+func (r *assetRepo) ListByCampaign(ctx context.Context, campaignID uuid.UUID, page, pageSize int) ([]*domain.AssetMetadata, int64, error) {
+	var assets []*domain.AssetMetadata
+	var total int64
+
+	query := r.DB().Model(&domain.AssetMetadata{}).Where("campaign_id = ? AND deleted_at IS NULL", campaignID)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at DESC").Limit(pageSize).Offset(offset).Find(&assets).Error; err != nil {
+		return nil, 0, err
+	}
+	return assets, total, nil
+}
+func (r *assetRepo) Update(ctx context.Context, asset *domain.AssetMetadata) error {
+	return r.DB().Save(asset).Error
+}
+func (r *assetRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	result := r.DB().Model(&domain.AssetMetadata{}).Where("id = ?", id).Update("deleted_at", time.Now())
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return repository.ErrAssetNotFound
+	}
+	return nil
+}
+func (r *assetRepo) ByCampaignAndFilename(ctx context.Context, campaignID uuid.UUID, filename string) (*domain.AssetMetadata, error) {
+	var asset domain.AssetMetadata
+	if err := r.DB().Where("campaign_id = ? AND original_filename = ? AND deleted_at IS NULL", campaignID, filename).
+		Order("version DESC").First(&asset).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, repository.ErrAssetNotFound
+		}
+		return nil, err
+	}
+	return &asset, nil
+}
+func (r *assetRepo) ListVersions(ctx context.Context, campaignID uuid.UUID, filename string) ([]*domain.AssetMetadata, error) {
+	var assets []*domain.AssetMetadata
+	if err := r.DB().Where("campaign_id = ? AND original_filename = ?", campaignID, filename).
+		Order("version DESC").Find(&assets).Error; err != nil {
+		return nil, err
+	}
+	return assets, nil
+}
+
 // DB returns the underlying GORM DB instance for advanced operations.
 func (s *PostgresStore) DB() *gorm.DB {
 	return s.db
@@ -892,6 +1008,8 @@ func (s *PostgresStore) AutoMigrate() error {
 		&domain.KYCStatus{},
 		&domain.Campaign{},
 		&domain.CampaignAsset{},
+		&domain.CreativeBrief{},
+		&domain.AssetMetadata{},
 	)
 }
 
