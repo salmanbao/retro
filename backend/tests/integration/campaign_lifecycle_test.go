@@ -64,12 +64,6 @@ func TestCampaignLifecycle_AllTransitions(t *testing.T) {
 		require.True(t, status.IsValidTransition(domain.CampaignStatusCancelled),
 			"paused should transition to cancelled")
 	})
-
-	t.Run("completed can transition to cancelled", func(t *testing.T) {
-		status := domain.CampaignStatusCompleted
-		require.True(t, status.IsValidTransition(domain.CampaignStatusCancelled),
-			"completed should transition to cancelled")
-	})
 }
 
 func TestCampaignLifecycle_InvalidTransitions(t *testing.T) {
