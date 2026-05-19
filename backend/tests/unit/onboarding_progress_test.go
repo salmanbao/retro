@@ -16,7 +16,7 @@ func TestIsValidStepStatusTransition(t *testing.T) {
 	}{
 		{"not_started to in_progress", domain.StepStatusNotStarted, domain.StepStatusInProgress, true},
 		{"not_started to completed", domain.StepStatusNotStarted, domain.StepStatusCompleted, false},
-		{"not_started to skipped", domain.StepStatusNotStarted, domain.StepStatusSkipped, false},
+		{"not_started to skipped", domain.StepStatusNotStarted, domain.StepStatusSkipped, true},
 		{"in_progress to completed", domain.StepStatusInProgress, domain.StepStatusCompleted, true},
 		{"in_progress to skipped", domain.StepStatusInProgress, domain.StepStatusSkipped, true},
 		{"in_progress to not_started", domain.StepStatusInProgress, domain.StepStatusNotStarted, false},
