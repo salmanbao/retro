@@ -119,7 +119,7 @@ func TestCampaignService_Create(t *testing.T) {
 		input := service.CreateCampaignInput{
 			BrandProfileID:     uuid.New(),
 			Title:              "Test Campaign",
-			Description:         "A test description",
+			Description:        "A test description",
 			SubmissionStart:    time.Now().Add(24 * time.Hour),
 			SubmissionDeadline: time.Now().Add(48 * time.Hour),
 			DistributionStart:  time.Now().Add(72 * time.Hour),
