@@ -77,9 +77,9 @@ func TestGetEditableFields_Cancelled(t *testing.T) {
 
 func TestEditRestrictions_FieldLevel(t *testing.T) {
 	tests := []struct {
-		name       string
-		status     domain.CampaignStatus
-		field      string
+		name        string
+		status      domain.CampaignStatus
+		field       string
 		shouldAllow bool
 	}{
 		// Draft allows all
