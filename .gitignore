@@ -12,3 +12,4 @@ vendor/
 # Contracts build artifacts
 /contracts/**/dist
 /contracts/**/generated
+config.bat

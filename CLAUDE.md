@@ -230,5 +230,5 @@ When in doubt, implement less.
 # Agent Context
 
 <!-- SPECKIT START -->
-Current feature plan: `specs/004-onboarding-activation/plan.md`
+Current feature plan: `specs/006-campaign-management/plan.md`
 <!-- SPECKIT END -->
