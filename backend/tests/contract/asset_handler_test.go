@@ -398,7 +398,3 @@ func TestAsset_Authorization(t *testing.T) {
 		assert.True(t, true, "Auth middleware should reject unauthenticated requests")
 	})
 }
-
-func strPtr(s string) *string {
-	return &s
-}
