@@ -230,5 +230,5 @@ When in doubt, implement less.
 # Agent Context
 
 <!-- SPECKIT START -->
-Current feature plan: `specs/007-creative-brief-asset/plan.md`
+Current feature plan: `specs/008-submission-management/plan.md`
 <!-- SPECKIT END -->

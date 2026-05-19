@@ -878,6 +878,11 @@ func (s *PostgresStore) AssetRepository() repository.AssetMetadataRepository {
 	return &assetRepo{s}
 }
 
+// SubmissionRepository returns a repository.SubmissionRepository backed by PostgresStore.
+func (s *PostgresStore) SubmissionRepository() repository.SubmissionRepository {
+	return &submissionRepo{s}
+}
+
 // creativeBriefRepo adapts PostgresStore to satisfy repository.CreativeBriefRepository.
 type creativeBriefRepo struct{ *PostgresStore }
 
@@ -1010,6 +1015,7 @@ func (s *PostgresStore) AutoMigrate() error {
 		&domain.CampaignAsset{},
 		&domain.CreativeBrief{},
 		&domain.AssetMetadata{},
+		&domain.Submission{},
 	)
 }
 
@@ -1020,4 +1026,62 @@ func (s *PostgresStore) Transaction(ctx context.Context, fn func(repo repository
 		txStore := &PostgresStore{db: tx}
 		return fn(txStore.UserRepository())
 	})
+}
+
+// submissionRepo adapts PostgresStore to satisfy repository.SubmissionRepository.
+type submissionRepo struct{ *PostgresStore }
+
+func (r *submissionRepo) Create(ctx context.Context, submission *domain.Submission) error {
+	return r.DB().Create(submission).Error
+}
+func (r *submissionRepo) GetByID(ctx context.Context, id uuid.UUID) (*domain.Submission, error) {
+	var submission domain.Submission
+	if err := r.DB().Where("id = ? AND deleted_at IS NULL", id).First(&submission).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, repository.ErrSubmissionNotFound
+		}
+		return nil, err
+	}
+	return &submission, nil
+}
+func (r *submissionRepo) GetByCampaignID(ctx context.Context, campaignID uuid.UUID) ([]*domain.Submission, error) {
+	var submissions []*domain.Submission
+	if err := r.DB().Where("campaign_id = ? AND deleted_at IS NULL", campaignID).
+		Order("created_at DESC").Find(&submissions).Error; err != nil {
+		return nil, err
+	}
+	return submissions, nil
+}
+func (r *submissionRepo) GetByEditorProfileID(ctx context.Context, editorProfileID uuid.UUID) ([]*domain.Submission, error) {
+	var submissions []*domain.Submission
+	if err := r.DB().Where("editor_profile_id = ? AND deleted_at IS NULL", editorProfileID).
+		Order("created_at DESC").Find(&submissions).Error; err != nil {
+		return nil, err
+	}
+	return submissions, nil
+}
+func (r *submissionRepo) Update(ctx context.Context, submission *domain.Submission) error {
+	return r.DB().Save(submission).Error
+}
+func (r *submissionRepo) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	return r.DB().Model(&domain.Submission{}).Where("id = ?", id).
+		Update("deleted_at", time.Now()).Error
+}
+func (r *submissionRepo) FindNonDraftByEditorAndCampaign(ctx context.Context, editorProfileID, campaignID uuid.UUID) (*domain.Submission, error) {
+	var submission domain.Submission
+	if err := r.DB().Where("editor_profile_id = ? AND campaign_id = ? AND status != ? AND deleted_at IS NULL",
+		editorProfileID, campaignID, domain.SubmissionStatusDraft).First(&submission).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, repository.ErrSubmissionNotFound
+		}
+		return nil, err
+	}
+	return &submission, nil
+}
+func (r *submissionRepo) ExistsByCampaignID(ctx context.Context, campaignID uuid.UUID) (bool, error) {
+	var count int64
+	if err := r.DB().Model(&domain.Submission{}).Where("campaign_id = ? AND deleted_at IS NULL", campaignID).Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
