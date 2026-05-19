@@ -52,6 +52,12 @@ var (
 	// ErrCampaignNotFound indicates no campaign matches the provided identifier.
 	ErrCampaignNotFound = errors.New("campaign not found")
 
+	// ErrBriefNotFound indicates no creative brief matches the provided identifier.
+	ErrBriefNotFound = errors.New("creative brief not found")
+
+	// ErrAssetNotFound indicates no asset matches the provided identifier.
+	ErrAssetNotFound = errors.New("asset not found")
+
 	// ErrUnauthorized indicates the user is not authorized for this action.
 	ErrUnauthorized = errors.New("unauthorized")
 
