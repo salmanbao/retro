@@ -88,7 +88,7 @@ func TestValidateTimeline(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name        string
+		name               string
 		submissionStart    time.Time
 		submissionDeadline time.Time
 		distributionStart  time.Time
@@ -96,7 +96,7 @@ func TestValidateTimeline(t *testing.T) {
 		expectError        bool
 	}{
 		{
-			name:        "valid timeline",
+			name:               "valid timeline",
 			submissionStart:    now.Add(24 * time.Hour),
 			submissionDeadline: now.Add(48 * time.Hour),
 			distributionStart:  now.Add(72 * time.Hour),
@@ -104,7 +104,7 @@ func TestValidateTimeline(t *testing.T) {
 			expectError:        false,
 		},
 		{
-			name:        "submission deadline before start",
+			name:               "submission deadline before start",
 			submissionStart:    now.Add(48 * time.Hour),
 			submissionDeadline: now.Add(24 * time.Hour),
 			distributionStart:  now.Add(72 * time.Hour),
@@ -112,7 +112,7 @@ func TestValidateTimeline(t *testing.T) {
 			expectError:        true,
 		},
 		{
-			name:        "distribution start before deadline",
+			name:               "distribution start before deadline",
 			submissionStart:    now.Add(24 * time.Hour),
 			submissionDeadline: now.Add(48 * time.Hour),
 			distributionStart:  now.Add(24 * time.Hour), // Same as submissionStart
@@ -120,7 +120,7 @@ func TestValidateTimeline(t *testing.T) {
 			expectError:        true,
 		},
 		{
-			name:        "campaign end before distribution start",
+			name:               "campaign end before distribution start",
 			submissionStart:    now.Add(24 * time.Hour),
 			submissionDeadline: now.Add(48 * time.Hour),
 			distributionStart:  now.Add(72 * time.Hour),
@@ -143,9 +143,9 @@ func TestValidateTimeline(t *testing.T) {
 
 func TestValidatePayoutRange(t *testing.T) {
 	tests := []struct {
-		name       string
-		min        *float64
-		max        *float64
+		name        string
+		min         *float64
+		max         *float64
 		expectError bool
 	}{
 		{
