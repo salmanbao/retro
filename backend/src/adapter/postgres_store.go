@@ -670,6 +670,100 @@ func (r *kycStatusRepo) Update(ctx context.Context, status *domain.KYCStatus) er
 	return r.DB().Save(status).Error
 }
 
+// campaignRepo adapts PostgresStore to satisfy repository.CampaignRepository.
+type campaignRepo struct{ *PostgresStore }
+
+func (r *campaignRepo) Create(ctx context.Context, campaign *domain.Campaign) error {
+	return r.DB().Create(campaign).Error
+}
+func (r *campaignRepo) ByID(ctx context.Context, id uuid.UUID) (*domain.Campaign, error) {
+	var campaign domain.Campaign
+	if err := r.DB().Where("id = ? AND deleted_at IS NULL", id).First(&campaign).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrCampaignNotFound
+		}
+		return nil, err
+	}
+	return &campaign, nil
+}
+func (r *campaignRepo) BySlug(ctx context.Context, slug string) (*domain.Campaign, error) {
+	var campaign domain.Campaign
+	if err := r.DB().Where("slug = ? AND deleted_at IS NULL", slug).First(&campaign).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.ErrCampaignNotFound
+		}
+		return nil, err
+	}
+	return &campaign, nil
+}
+func (r *campaignRepo) ByBrandProfileID(ctx context.Context, brandProfileID uuid.UUID) ([]*domain.Campaign, error) {
+	var campaigns []*domain.Campaign
+	if err := r.DB().Where("brand_profile_id = ? AND deleted_at IS NULL", brandProfileID).Find(&campaigns).Error; err != nil {
+		return nil, err
+	}
+	return campaigns, nil
+}
+func (r *campaignRepo) Update(ctx context.Context, campaign *domain.Campaign) error {
+	return r.DB().Save(campaign).Error
+}
+func (r *campaignRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	result := r.DB().Model(&domain.Campaign{}).Where("id = ?", id).Update("deleted_at", time.Now())
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrCampaignNotFound
+	}
+	return nil
+}
+func (r *campaignRepo) List(ctx context.Context, brandProfileID uuid.UUID, status string, page, pageSize int) ([]*domain.Campaign, int64, error) {
+	var campaigns []*domain.Campaign
+	var total int64
+
+	query := r.DB().Model(&domain.Campaign{}).Where("brand_profile_id = ? AND deleted_at IS NULL", brandProfileID)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at DESC").Limit(pageSize).Offset(offset).Find(&campaigns).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return campaigns, total, nil
+}
+func (r *campaignRepo) ByStatusAndDeadline(ctx context.Context, status domain.CampaignStatus, deadline time.Time) ([]*domain.Campaign, error) {
+	var campaigns []*domain.Campaign
+	if err := r.DB().Where("status = ? AND submission_deadline <= ? AND deleted_at IS NULL", status, deadline).Find(&campaigns).Error; err != nil {
+		return nil, err
+	}
+	return campaigns, nil
+}
+
+// campaignAssetRepo adapts PostgresStore to satisfy repository.CampaignAssetRepository.
+type campaignAssetRepo struct{ *PostgresStore }
+
+func (r *campaignAssetRepo) Create(ctx context.Context, asset *domain.CampaignAsset) error {
+	return r.DB().Create(asset).Error
+}
+func (r *campaignAssetRepo) ByCampaignID(ctx context.Context, campaignID uuid.UUID) ([]*domain.CampaignAsset, error) {
+	var assets []*domain.CampaignAsset
+	if err := r.DB().Where("campaign_id = ?", campaignID).Order("created_at ASC").Find(&assets).Error; err != nil {
+		return nil, err
+	}
+	return assets, nil
+}
+func (r *campaignAssetRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return r.DB().Delete(&domain.CampaignAsset{}, "id = ?", id).Error
+}
+func (r *campaignAssetRepo) DeleteByCampaignID(ctx context.Context, campaignID uuid.UUID) error {
+	return r.DB().Delete(&domain.CampaignAsset{}, "campaign_id = ?", campaignID).Error
+}
+
 // Compile-time interface checks.
 var (
 	_ repository.UserRepository                 = (*userRepo)(nil)
@@ -688,6 +782,8 @@ var (
 	_ repository.FollowerVerificationRepository = (*followerVerificationRepo)(nil)
 	_ repository.PayoutPreferencesRepository    = (*payoutPreferencesRepo)(nil)
 	_ repository.KYCStatusRepository            = (*kycStatusRepo)(nil)
+	_ repository.CampaignRepository              = (*campaignRepo)(nil)
+	_ repository.CampaignAssetRepository        = (*campaignAssetRepo)(nil)
 )
 
 // UserRepository returns a repository.UserRepository backed by PostgresStore.
@@ -760,6 +856,16 @@ func (s *PostgresStore) KYCStatusRepository() repository.KYCStatusRepository {
 	return &kycStatusRepo{s}
 }
 
+// CampaignRepository returns a repository.CampaignRepository backed by PostgresStore.
+func (s *PostgresStore) CampaignRepository() repository.CampaignRepository {
+	return &campaignRepo{s}
+}
+
+// CampaignAssetRepository returns a repository.CampaignAssetRepository backed by PostgresStore.
+func (s *PostgresStore) CampaignAssetRepository() repository.CampaignAssetRepository {
+	return &campaignAssetRepo{s}
+}
+
 // DB returns the underlying GORM DB instance for advanced operations.
 func (s *PostgresStore) DB() *gorm.DB {
 	return s.db
@@ -784,6 +890,8 @@ func (s *PostgresStore) AutoMigrate() error {
 		&domain.FollowerVerification{},
 		&domain.PayoutPreferences{},
 		&domain.KYCStatus{},
+		&domain.Campaign{},
+		&domain.CampaignAsset{},
 	)
 }
 
