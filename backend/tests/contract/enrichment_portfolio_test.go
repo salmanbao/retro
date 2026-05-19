@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -255,15 +255,21 @@ func TestT081_PortfolioCRUDAsEditor(t *testing.T) {
 
 	// Test PATCH /api/v1/profiles/{id}/portfolio/{itemId} (update)
 	itemUUID, _ := uuid.Parse(itemID)
+	t.Logf("itemID from response: %q, len=%d", itemID, len(itemID))
+	t.Logf("parsed UUID: %s, String(): %s", itemUUID.String(), itemUUID.String())
 	displayOrderInt := 2
 	updateReq := handler.UpdatePortfolioItemRequest{
 		DisplayOrder: &displayOrderInt,
 	}
 	body, _ = json.Marshal(updateReq)
-	req, _ = http.NewRequest(http.MethodPatch, "/api/v1/profiles/"+editorProfile.ID.String()+"/portfolio/"+itemUUID.String(), bytes.NewReader(body))
+	patchURL := "/api/v1/profiles/" + editorProfile.ID.String() + "/portfolio/" + itemUUID.String()
+	t.Logf("PATCH URL: %s", patchURL)
+	t.Logf("PATCH body: %s", string(body))
+	req, _ = http.NewRequest(http.MethodPatch, patchURL, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
+	t.Logf("PATCH response: %d - %s", w.Code, w.Body.String())
 	assert.Equal(t, http.StatusOK, w.Code, "PATCH should update portfolio item")
 
 	// Verify update
@@ -272,9 +278,12 @@ func TestT081_PortfolioCRUDAsEditor(t *testing.T) {
 	assert.Equal(t, 2, updatedItem.DisplayOrder, "Display order should be updated")
 
 	// Test DELETE /api/v1/profiles/{id}/portfolio/{itemId}
-	req, _ = http.NewRequest(http.MethodDelete, "/api/v1/profiles/"+editorProfile.ID.String()+"/portfolio/"+itemUUID.String(), nil)
+	delURL := "/api/v1/profiles/" + editorProfile.ID.String() + "/portfolio/" + itemUUID.String()
+	t.Logf("DELETE URL: %s", delURL)
+	req, _ = http.NewRequest(http.MethodDelete, delURL, nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
+	t.Logf("DELETE response: %d - %s", w.Code, w.Body.String())
 	assert.Equal(t, http.StatusNoContent, w.Code, "DELETE should return 204")
 
 	// Verify soft delete
