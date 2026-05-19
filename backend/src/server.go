@@ -14,6 +14,7 @@ import (
 	campaignHandler "viralforge/backend/src/handler/campaign"
 	creativeBriefHandler "viralforge/backend/src/handler/creative_brief"
 	onboardingHandler "viralforge/backend/src/handler/onboarding"
+	submissionHandler "viralforge/backend/src/handler/submission"
 	authMiddleware "viralforge/backend/src/middleware"
 	onboardingRepo "viralforge/backend/src/repository/onboarding"
 	"viralforge/backend/src/service"
@@ -127,6 +128,14 @@ func (s *Server) Setup() {
 		s.store.CampaignRepository(),
 	)
 
+	// Submission service
+	submissionSvc := service.NewSubmissionService(
+		s.store.SubmissionRepository(),
+		s.store.CampaignRepository(),
+		s.store.CreativeBriefRepository(),
+		s.store.AssetRepository(),
+	)
+
 	onboardingSvc := onboarding.NewService(
 		onboardingRepo.NewTemplateRepo(s.store.DB()),
 		onboardingRepo.NewProgressRepo(s.store.DB()),
@@ -153,6 +162,7 @@ func (s *Server) Setup() {
 	onboardingHandler := onboardingHandler.NewHandler(onboardingSvc, activationSvc)
 	briefHdlr := creativeBriefHandler.NewHandler(briefSvc, campaignSvc, s.store.ProfileRepository())
 	assetHdlr := assetHandler.NewHandler(assetSvc, campaignSvc, s.store.ProfileRepository())
+	submissionHdlr := submissionHandler.NewHandler(submissionSvc, s.store.ProfileRepository())
 
 	// Create middleware
 	authMw := authMiddleware.NewAuthMiddleware(s.store.SessionRepository(), s.store.UserRepository())
@@ -249,6 +259,21 @@ func (s *Server) Setup() {
 	s.router.Route("/api/v1", func(r chi.Router) {
 		r.Use(authMw.Authenticate)
 		assetHdlr.RegisterRoutes(r)
+	})
+	// Submission routes - nested under campaigns for creation/listing
+	s.router.Route("/api/v1/campaigns/{campaignId}/submissions", func(r chi.Router) {
+		r.Use(authMw.Authenticate)
+		r.Use(profileTypeMw.RequireEditor) // Editor profile required for submissions
+		r.Post("/", submissionHdlr.Create)
+		r.Get("/", submissionHdlr.ListByCampaign)
+	})
+	// Submission routes - direct access for get/update/submit/withdraw
+	s.router.Route("/api/v1/submissions/{id}", func(r chi.Router) {
+		r.Use(authMw.Authenticate)
+		r.Get("/", submissionHdlr.GetByID)
+		r.Patch("/", submissionHdlr.Update)
+		r.Post("/submit", submissionHdlr.Submit)
+		r.Post("/withdraw", submissionHdlr.Withdraw)
 	})
 }
 
