@@ -70,7 +70,7 @@ type Submission struct {
 	ThumbnailURL    string           `json:"thumbnail_url" gorm:"type:varchar(2000)"`
 	DurationSeconds int              `json:"duration_seconds" gorm:"not null"`
 	Notes           string           `json:"notes" gorm:"type:text"`
-	Tags            []string         `json:"tags" gorm:"type:jsonb;default:'[]'::jsonb"`
+	Tags            JSONBArray       `json:"tags" gorm:"type:jsonb;default:'[]'::jsonb"`
 	Status          SubmissionStatus `json:"status" gorm:"type:varchar(20);not null;default:'draft'"`
 	CreatedAt       time.Time        `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt       time.Time        `json:"updated_at" gorm:"autoUpdateTime"`

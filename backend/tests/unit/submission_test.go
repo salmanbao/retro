@@ -172,9 +172,9 @@ func TestSubmission_Validate(t *testing.T) {
 		{
 			name: "missing editor_profile_id",
 			sub: domain.Submission{
-				CampaignID: uuid.New(),
-				Title:      "My Video",
-				VideoURL:   "https://example.com/video.mp4",
+				CampaignID:      uuid.New(),
+				Title:           "My Video",
+				VideoURL:        "https://example.com/video.mp4",
 				DurationSeconds: 60,
 			},
 			wantErr: true,
