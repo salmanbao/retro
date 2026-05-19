@@ -121,8 +121,8 @@ func TestCheckEligibility_Valid(t *testing.T) {
 // MockSubmissionService simulates the eligibility check logic for unit testing.
 type MockSubmissionService struct {
 	campaign           *domain.Campaign
-	brief               *domain.CreativeBrief
-	assets              []*domain.AssetMetadata
+	brief              *domain.CreativeBrief
+	assets             []*domain.AssetMetadata
 	existingSubmission *domain.Submission
 }
 

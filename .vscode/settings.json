@@ -1,3 +1,5 @@
 {
-    "chat.mcp.access": "all"
+  "chat.mcp.access": "all",
+  "debug.openDebug": "neverOpen",
+  "terminal.integrated.inheritEnv": false
 }

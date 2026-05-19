@@ -13,19 +13,19 @@ import (
 
 func TestReadinessValidation_BrandProfileOnboarding(t *testing.T) {
 	tests := []struct {
-		name          string
+		name           string
 		brandOnboarded bool
-		expectError   bool
+		expectError    bool
 	}{
 		{
 			name:           "brand fully onboarded",
 			brandOnboarded: true,
-			expectError:   false,
+			expectError:    false,
 		},
 		{
 			name:           "brand not fully onboarded",
 			brandOnboarded: false,
-			expectError:   true,
+			expectError:    true,
 		},
 	}
 
@@ -80,19 +80,19 @@ func TestReadinessValidation_KYCStatus(t *testing.T) {
 
 func TestReadinessValidation_PayoutConfigured(t *testing.T) {
 	tests := []struct {
-		name            string
+		name             string
 		payoutConfigured bool
-		expectErr       bool
+		expectErr        bool
 	}{
 		{
-			name:            "payout configured",
+			name:             "payout configured",
 			payoutConfigured: true,
-			expectErr:       false,
+			expectErr:        false,
 		},
 		{
-			name:            "payout not configured",
+			name:             "payout not configured",
 			payoutConfigured: false,
-			expectErr:       true,
+			expectErr:        true,
 		},
 	}
 

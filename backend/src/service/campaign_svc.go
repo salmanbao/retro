@@ -101,6 +101,9 @@ func GenerateSlug(title string) string {
 
 // ValidateTimeline validates the campaign timeline.
 func ValidateTimeline(submissionStart, submissionDeadline, distributionStart, campaignEnd time.Time) error {
+	if submissionDeadline.Before(time.Now()) {
+		return domain.ErrDeadlinePassed
+	}
 	if !submissionDeadline.After(submissionStart) {
 		return domain.ErrInvalidTimeline
 	}
