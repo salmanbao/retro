@@ -2,6 +2,7 @@ package src
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"viralforge/backend/src/adapter"
 	"viralforge/backend/src/handler"
+	campaignHandler "viralforge/backend/src/handler/campaign"
 	onboardingHandler "viralforge/backend/src/handler/onboarding"
 	authMiddleware "viralforge/backend/src/middleware"
 	onboardingRepo "viralforge/backend/src/repository/onboarding"
@@ -108,6 +110,11 @@ func (s *Server) Setup() {
 		s.store.ProfileRepository(),
 	)
 
+	campaignSvc := service.NewCampaignService(
+		s.store.CampaignRepository(),
+		s.store.CampaignAssetRepository(),
+	)
+
 	onboardingSvc := onboarding.NewService(
 		onboardingRepo.NewTemplateRepo(s.store.DB()),
 		onboardingRepo.NewProgressRepo(s.store.DB()),
@@ -121,6 +128,7 @@ func (s *Server) Setup() {
 
 	// Create handlers
 	authHandler := handler.NewAuthHandler(authSvc, loginHistorySvc, twoFactorSvc)
+	campaignHdlr := campaignHandler.NewHandler(campaignSvc)
 	sessionHandler := handler.NewSessionHandler(sessionSvc)
 	profileHandler := handler.NewProfileHandler(profileSvc)
 	profileEnrichmentHandler := handler.NewProfileEnrichmentHandler(enrichmentSvc)
@@ -213,6 +221,11 @@ func (s *Server) Setup() {
 		r.Use(authMw.Authenticate)
 		authHandler.RegisterLoginHistoryRoutes(r)
 	})
+	// Campaign routes
+	s.router.Route("/api/v1/campaigns", func(r chi.Router) {
+		r.Use(authMw.Authenticate)
+		campaignHdlr.RegisterRoutes(r)
+	})
 }
 
 func (s *Server) healthCheck(w http.ResponseWriter, r *http.Request) {
@@ -223,6 +236,10 @@ func (s *Server) healthCheck(w http.ResponseWriter, r *http.Request) {
 // Run starts the HTTP server.
 func (s *Server) Run(ctx context.Context, addr string) error {
 	s.Setup()
+
+	// Start campaign lifecycle worker for automatic published->active transitions
+	go s.startCampaignLifecycleWorker(ctx)
+
 	srv := &http.Server{
 		Addr:         addr,
 		Handler:      s.router,
@@ -232,4 +249,28 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 	go srv.ListenAndServe()
 	<-ctx.Done()
 	return srv.Shutdown(ctx)
+}
+
+// startCampaignLifecycleWorker periodically transitions published campaigns to active.
+func (s *Server) startCampaignLifecycleWorker(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			campaignSvc := service.NewCampaignService(
+				s.store.CampaignRepository(),
+				s.store.CampaignAssetRepository(),
+			)
+			count, err := campaignSvc.TransitionPublishedToActive(ctx)
+			if err != nil {
+				log.Printf("Campaign lifecycle worker error: %v", err)
+			} else if count > 0 {
+				log.Printf("Campaign lifecycle worker: transitioned %d campaigns from published to active", count)
+			}
+		}
+	}
 }
